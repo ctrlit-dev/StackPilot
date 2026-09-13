@@ -47,7 +47,7 @@ async function runScopedManagementCommand(
     return;
   }
 
-  const plan = planManagementCommand(context.projectState.getState().detectedProject, [verb, appName]);
+  const plan = planManagementCommand(context.projectState.getState().detectedProject, [verb, appName], context.backendAdapter);
   if (plan.kind !== "ready") {
     showActionableError(
       context.outputChannel,

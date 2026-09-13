@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { djangoBackendAdapter } from "../../src/adapters/djangoBackendAdapter";
 import type { BackendProject } from "../../src/detection/backendDetector";
 import type { DetectedProject } from "../../src/detection/projectDetector";
 import type { PythonEnvironment } from "../../src/detection/pythonDetector";
@@ -42,15 +43,15 @@ for (const [name, planFn, expectedArgSuffix] of [
   ["planDjangoTest", planDjangoTest, ["test"]]
 ] as const) {
   void test(`${name} reports no-backend when nothing is detected`, () => {
-    assert.equal(planFn(detectedProject()).kind, "no-backend");
+    assert.equal(planFn(detectedProject(), djangoBackendAdapter).kind, "no-backend");
   });
 
   void test(`${name} reports no-python when backend is detected but no interpreter is`, () => {
-    assert.equal(planFn(detectedProject({ backend: backend() })).kind, "no-python");
+    assert.equal(planFn(detectedProject({ backend: backend() }), djangoBackendAdapter).kind, "no-python");
   });
 
   void test(`${name} builds the expected manage.py command when ready`, () => {
-    const plan = planFn(detectedProject({ backend: backend(), python: python() }));
+    const plan = planFn(detectedProject({ backend: backend(), python: python() }), djangoBackendAdapter);
     assert.equal(plan.kind, "ready");
     if (plan.kind === "ready") {
       assert.deepEqual(plan.command.args, ["/workspace/backend/manage.py", ...expectedArgSuffix]);
@@ -59,17 +60,17 @@ for (const [name, planFn, expectedArgSuffix] of [
 }
 
 void test("planCreateApp rejects an invalid app name before checking detection", () => {
-  const plan = planCreateApp(detectedProject(), "billing app");
+  const plan = planCreateApp(detectedProject(), "billing app", djangoBackendAdapter);
   assert.equal(plan.kind, "invalid-name");
 });
 
 void test("planCreateApp reports no-backend for a valid name when nothing is detected", () => {
-  const plan = planCreateApp(detectedProject(), "billing");
+  const plan = planCreateApp(detectedProject(), "billing", djangoBackendAdapter);
   assert.equal(plan.kind, "no-backend");
 });
 
 void test("planCreateApp builds startapp for a valid name when ready", () => {
-  const plan = planCreateApp(detectedProject({ backend: backend(), python: python() }), "billing");
+  const plan = planCreateApp(detectedProject({ backend: backend(), python: python() }), "billing", djangoBackendAdapter);
   assert.equal(plan.kind, "ready");
   if (plan.kind === "ready") {
     assert.deepEqual(plan.command.args, ["/workspace/backend/manage.py", "startapp", "billing"]);
@@ -79,19 +80,19 @@ void test("planCreateApp builds startapp for a valid name when ready", () => {
 void test("planDjangoShell and planCreateSuperuser build interactive invocations, not captured commands", () => {
   const project = detectedProject({ backend: backend(), python: python() });
 
-  const shellPlan = planDjangoShell(project);
+  const shellPlan = planDjangoShell(project, djangoBackendAdapter);
   assert.equal(shellPlan.kind, "ready");
   if (shellPlan.kind === "ready") {
     assert.deepEqual(shellPlan.invocation.shellArgs, ["/workspace/backend/manage.py", "shell"]);
   }
 
-  const superuserPlan = planCreateSuperuser(project);
+  const superuserPlan = planCreateSuperuser(project, djangoBackendAdapter);
   assert.equal(superuserPlan.kind, "ready");
   if (superuserPlan.kind === "ready") {
     assert.deepEqual(superuserPlan.invocation.shellArgs, ["/workspace/backend/manage.py", "createsuperuser"]);
   }
 
-  const dbShellPlan = planDbShell(project);
+  const dbShellPlan = planDbShell(project, djangoBackendAdapter);
   assert.equal(dbShellPlan.kind, "ready");
   if (dbShellPlan.kind === "ready") {
     assert.deepEqual(dbShellPlan.invocation.shellArgs, ["/workspace/backend/manage.py", "dbshell"]);
@@ -128,15 +129,15 @@ void test("planInstallPythonDependencies reports no-requirements-file when there
 });
 
 void test("planManagementCommand reports no-backend when nothing is detected", () => {
-  assert.equal(planManagementCommand(detectedProject(), ["migrate"]).kind, "no-backend");
+  assert.equal(planManagementCommand(detectedProject(), ["migrate"], djangoBackendAdapter).kind, "no-backend");
 });
 
 void test("planManagementCommand reports no-python when a backend is detected but no interpreter is", () => {
-  assert.equal(planManagementCommand(detectedProject({ backend: backend() }), ["migrate"]).kind, "no-python");
+  assert.equal(planManagementCommand(detectedProject({ backend: backend() }), ["migrate"], djangoBackendAdapter).kind, "no-python");
 });
 
 void test("planManagementCommand runs whatever arguments were given, verbatim", () => {
-  const plan = planManagementCommand(detectedProject({ backend: backend(), python: python() }), ["makemessages", "-l", "de"]);
+  const plan = planManagementCommand(detectedProject({ backend: backend(), python: python() }), ["makemessages", "-l", "de"], djangoBackendAdapter);
   assert.equal(plan.kind, "ready");
   if (plan.kind === "ready") {
     assert.deepEqual(plan.command.args, ["/workspace/backend/manage.py", "makemessages", "-l", "de"]);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { djangoBackendAdapter } from "../../src/adapters/djangoBackendAdapter";
 import type { BackendProject } from "../../src/detection/backendDetector";
 import type { FrontendProject } from "../../src/detection/frontendDetector";
 import type { PackageManagerDetection } from "../../src/detection/packageManagerDetector";
@@ -44,19 +45,19 @@ function frontend(packageManager: PackageManagerDetection, scripts: Record<strin
 const npmDetected: PackageManagerDetection = { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" };
 
 void test("backendTestSuitePlan reports unavailable when no backend was detected", () => {
-  const plan = backendTestSuitePlan(detectedProject());
+  const plan = backendTestSuitePlan(detectedProject(), djangoBackendAdapter);
   assert.equal(plan.kind, "unavailable");
   assert.equal(plan.reason, "No Django project was detected.");
 });
 
 void test("backendTestSuitePlan reports unavailable when a backend is detected but no interpreter is", () => {
-  const plan = backendTestSuitePlan(detectedProject({ backend: backend() }));
+  const plan = backendTestSuitePlan(detectedProject({ backend: backend() }), djangoBackendAdapter);
   assert.equal(plan.kind, "unavailable");
   assert.equal(plan.reason, "No Python interpreter was found.");
 });
 
 void test("backendTestSuitePlan is ready with the manage.py test command once everything is detected", () => {
-  const plan = backendTestSuitePlan(detectedProject({ backend: backend(), python: python() }));
+  const plan = backendTestSuitePlan(detectedProject({ backend: backend(), python: python() }), djangoBackendAdapter);
   assert.equal(plan.kind, "ready");
   assert.deepEqual(plan.command?.args, ["/workspace/backend/manage.py", "test"]);
 });

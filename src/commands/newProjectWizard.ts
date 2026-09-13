@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
+import { validateDjangoAppName } from "../adapters/djangoIdentifierValidation";
 import { DEFAULT_CONFIGURATION } from "../config/configurationModel";
 import { detectPythonEnvironment } from "../detection/pythonDetector";
 import { COMMAND_CREATE_PROJECT } from "../constants";
@@ -12,7 +13,6 @@ import { validateFolderName } from "../project/projectNameValidation";
 import { executeScaffoldSteps } from "../project/scaffoldStep";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
-import { validateDjangoAppName } from "./djangoIdentifierValidation";
 
 const PACKAGE_MANAGER_CHOICES: readonly PackageManager[] = ["npm", "pnpm", "yarn", "bun"];
 

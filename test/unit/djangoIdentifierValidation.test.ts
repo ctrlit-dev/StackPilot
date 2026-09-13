@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validateDjangoAppName } from "../../src/commands/djangoIdentifierValidation";
+import { validateDjangoAppName } from "../../src/adapters/djangoIdentifierValidation";
 
 void test("accepts a normal app name", () => {
   assert.deepEqual(validateDjangoAppName("billing"), { valid: true });

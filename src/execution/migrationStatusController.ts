@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
+import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
 import type { ProjectStateStore } from "../state/projectState";
-import { buildManagePyCommand } from "./djangoManageCommand";
 import { runOneShotCommand } from "./oneShotCommand";
 import type { ProcessSpawner } from "./processSpawner";
 
@@ -23,7 +23,8 @@ export class MigrationStatusController implements vscode.Disposable {
 
   public constructor(
     private readonly spawner: ProcessSpawner,
-    private readonly projectState: ProjectStateStore
+    private readonly projectState: ProjectStateStore,
+    private readonly backendAdapter: BackendFrameworkAdapter
   ) {
     this.disposables.push(projectState.onDidChangeState(() => void this.refresh()));
     void this.refresh();
@@ -62,7 +63,7 @@ export class MigrationStatusController implements vscode.Disposable {
 
     this.checking = true;
     this.setStatus("checking");
-    const result = await runOneShotCommand(this.spawner, buildManagePyCommand(python, backend, ["migrate", "--check"]));
+    const result = await runOneShotCommand(this.spawner, this.backendAdapter.buildManagementCommand(python, backend, ["migrate", "--check"]));
     this.checking = false;
 
     if (result.outcome === "spawn-failed") {

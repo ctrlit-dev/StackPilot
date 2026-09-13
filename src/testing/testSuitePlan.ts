@@ -1,3 +1,4 @@
+import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
 import { planDjangoTest } from "../commands/backendOperationPlans";
 import { planTestFrontend } from "../commands/frontendOperationPlans";
 import type { DetectedProject } from "../detection/projectDetector";
@@ -16,8 +17,8 @@ export interface TestSuitePlan {
  * one command to run, or one reason it cannot run yet. Kept vscode-free so
  * it is unit-testable the same way as every other plan function here.
  */
-export function backendTestSuitePlan(detectedProject: DetectedProject | undefined): TestSuitePlan {
-  const plan = planDjangoTest(detectedProject);
+export function backendTestSuitePlan(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): TestSuitePlan {
+  const plan = planDjangoTest(detectedProject, backendAdapter);
   if (plan.kind === "ready") {
     return { kind: "ready", command: plan.command };
   }

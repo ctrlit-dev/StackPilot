@@ -1,21 +1,10 @@
+import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
 import type { BackendProject } from "../detection/backendDetector";
 import type { DetectedProject } from "../detection/projectDetector";
 import type { PythonEnvironment } from "../detection/pythonDetector";
-import {
-  buildCreateAppCommand,
-  buildCreateSuperuserInvocation,
-  buildDbShellInvocation,
-  buildDjangoShellInvocation,
-  buildDjangoTestCommand,
-  buildManagePyCommand,
-  buildMakeMigrationsCommand,
-  buildMigrateCommand,
-  buildShowMigrationsCommand,
-  type InteractiveShellInvocation
-} from "../execution/djangoManageCommand";
+import type { InteractiveShellInvocation } from "../execution/interactiveTerminalManager";
 import type { OneShotCommandOptions } from "../execution/oneShotCommand";
 import { buildPipInstallCommand } from "../execution/pythonDependencyCommand";
-import { validateDjangoAppName } from "./djangoIdentifierValidation";
 
 type BackendPrerequisites = { readonly backend: BackendProject; readonly python: PythonEnvironment } | { readonly kind: "no-backend" } | { readonly kind: "no-python" };
 
@@ -47,20 +36,20 @@ function planManagePyOperation(
   return { kind: "ready", command: build(prerequisites.python, prerequisites.backend) };
 }
 
-export function planMakeMigrations(detectedProject: DetectedProject | undefined): BackendOperationPlan {
-  return planManagePyOperation(detectedProject, buildMakeMigrationsCommand);
+export function planMakeMigrations(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): BackendOperationPlan {
+  return planManagePyOperation(detectedProject, (python, backend) => backendAdapter.buildMakeMigrationsCommand(python, backend));
 }
 
-export function planMigrate(detectedProject: DetectedProject | undefined): BackendOperationPlan {
-  return planManagePyOperation(detectedProject, buildMigrateCommand);
+export function planMigrate(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): BackendOperationPlan {
+  return planManagePyOperation(detectedProject, (python, backend) => backendAdapter.buildMigrateCommand(python, backend));
 }
 
-export function planShowMigrations(detectedProject: DetectedProject | undefined): BackendOperationPlan {
-  return planManagePyOperation(detectedProject, buildShowMigrationsCommand);
+export function planShowMigrations(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): BackendOperationPlan {
+  return planManagePyOperation(detectedProject, (python, backend) => backendAdapter.buildShowMigrationsCommand(python, backend));
 }
 
-export function planDjangoTest(detectedProject: DetectedProject | undefined): BackendOperationPlan {
-  return planManagePyOperation(detectedProject, buildDjangoTestCommand);
+export function planDjangoTest(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): BackendOperationPlan {
+  return planManagePyOperation(detectedProject, (python, backend) => backendAdapter.buildTestCommand(python, backend));
 }
 
 /**
@@ -69,8 +58,12 @@ export function planDjangoTest(detectedProject: DetectedProject | undefined): Ba
  * user typed via the exact same <python> manage.py <args> shape as every
  * other operation above.
  */
-export function planManagementCommand(detectedProject: DetectedProject | undefined, args: readonly string[]): BackendOperationPlan {
-  return planManagePyOperation(detectedProject, (python, backend) => buildManagePyCommand(python, backend, args));
+export function planManagementCommand(
+  detectedProject: DetectedProject | undefined,
+  args: readonly string[],
+  backendAdapter: BackendFrameworkAdapter
+): BackendOperationPlan {
+  return planManagePyOperation(detectedProject, (python, backend) => backendAdapter.buildManagementCommand(python, backend, args));
 }
 
 export type CreateAppPlan =
@@ -79,12 +72,12 @@ export type CreateAppPlan =
   | { readonly kind: "no-python" }
   | { readonly kind: "invalid-name"; readonly reason: string };
 
-export function planCreateApp(detectedProject: DetectedProject | undefined, appName: string): CreateAppPlan {
-  const validation = validateDjangoAppName(appName);
+export function planCreateApp(detectedProject: DetectedProject | undefined, appName: string, backendAdapter: BackendFrameworkAdapter): CreateAppPlan {
+  const validation = backendAdapter.validateAppName(appName);
   if (!validation.valid) {
     return { kind: "invalid-name", reason: validation.reason };
   }
-  return planManagePyOperation(detectedProject, (python, backend) => buildCreateAppCommand(python, backend, appName));
+  return planManagePyOperation(detectedProject, (python, backend) => backendAdapter.buildStartAppCommand(python, backend, appName));
 }
 
 export type InteractiveBackendPlan =
@@ -92,28 +85,28 @@ export type InteractiveBackendPlan =
   | { readonly kind: "no-backend" }
   | { readonly kind: "no-python" };
 
-export function planDjangoShell(detectedProject: DetectedProject | undefined): InteractiveBackendPlan {
+export function planDjangoShell(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): InteractiveBackendPlan {
   const prerequisites = requireBackendAndPython(detectedProject);
   if ("kind" in prerequisites) {
     return prerequisites;
   }
-  return { kind: "ready", invocation: buildDjangoShellInvocation(prerequisites.python, prerequisites.backend) };
+  return { kind: "ready", invocation: backendAdapter.buildShellInvocation(prerequisites.python, prerequisites.backend) };
 }
 
-export function planDbShell(detectedProject: DetectedProject | undefined): InteractiveBackendPlan {
+export function planDbShell(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): InteractiveBackendPlan {
   const prerequisites = requireBackendAndPython(detectedProject);
   if ("kind" in prerequisites) {
     return prerequisites;
   }
-  return { kind: "ready", invocation: buildDbShellInvocation(prerequisites.python, prerequisites.backend) };
+  return { kind: "ready", invocation: backendAdapter.buildDatabaseShellInvocation(prerequisites.python, prerequisites.backend) };
 }
 
-export function planCreateSuperuser(detectedProject: DetectedProject | undefined): InteractiveBackendPlan {
+export function planCreateSuperuser(detectedProject: DetectedProject | undefined, backendAdapter: BackendFrameworkAdapter): InteractiveBackendPlan {
   const prerequisites = requireBackendAndPython(detectedProject);
   if ("kind" in prerequisites) {
     return prerequisites;
   }
-  return { kind: "ready", invocation: buildCreateSuperuserInvocation(prerequisites.python, prerequisites.backend) };
+  return { kind: "ready", invocation: backendAdapter.buildCreateSuperuserInvocation(prerequisites.python, prerequisites.backend) };
 }
 
 const REQUIREMENTS_CANDIDATES = ["requirements.txt", "requirements/dev.txt"] as const;
@@ -133,7 +126,9 @@ export type InstallPythonDependenciesPlan =
  * refuses rather than guessing an equivalent `poetry install`/`uv sync`
  * command that was never specified ("if the project clearly uses one
  * environment manager, respect it" - respecting it here means not
- * overriding it with an assumed pip command).
+ * overriding it with an assumed pip command). Not part of the Django
+ * framework adapter: installing dependencies via pip is a Python/venv
+ * concern, not a manage.py operation.
  */
 export function planInstallPythonDependencies(detectedProject: DetectedProject | undefined): InstallPythonDependenciesPlan {
   const prerequisites = requireBackendAndPython(detectedProject);

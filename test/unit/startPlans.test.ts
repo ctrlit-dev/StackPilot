@@ -72,6 +72,7 @@ void test("planBackendStart delegates the actual command shape to the injected a
   // itself: a fake adapter with a deliberately different command shape must
   // be reflected verbatim in the resulting plan.
   const fakeAdapter = {
+    ...djangoBackendAdapter,
     id: "fake-framework",
     buildStartCommand: () => ({ executable: "fake-executable", args: ["fake-arg"], cwd: "/fake/cwd", expectedPort: 1234 })
   };
