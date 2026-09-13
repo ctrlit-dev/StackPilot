@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import {
   COMMAND_BUILD_FRONTEND,
   COMMAND_INSTALL_FRONTEND_DEPENDENCIES,
+  COMMAND_REFRESH,
   COMMAND_RUN_FRONTEND_SCRIPT,
   COMMAND_RUN_FRONTEND_TESTS
 } from "../constants";
@@ -62,7 +63,15 @@ export async function installFrontendDependencies(context: CommandContext): Prom
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Install Frontend Dependencies"))) {
     return;
   }
-  await runInstallFrontendDependencies(context);
+  // Only on success (DIAGNOSTICS-1B gap): re-detects the project so
+  // node.dependencies.missing does not stay stale after an install this
+  // command just performed. Not added inside runInstallFrontendDependencies()
+  // itself - the Initialize Project flow calls that shared function directly
+  // and already calls COMMAND_REFRESH once per completed step, so doing it
+  // there too would refresh twice for the same success.
+  if (await runInstallFrontendDependencies(context)) {
+    await vscode.commands.executeCommand(COMMAND_REFRESH);
+  }
 }
 
 export async function buildFrontend(context: CommandContext): Promise<void> {

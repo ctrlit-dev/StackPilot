@@ -35,11 +35,12 @@ import { getBackendService, getDjangoMetadata, getFrontendService, getNodeRuntim
 import type { DjangoApp } from "../detection/djangoAppDetector";
 import type { PackageManagerDetection } from "../detection/packageManagerDetector";
 import type { PythonEnvironment } from "../detection/pythonDetector";
-import type { MigrationStatusController } from "../execution/migrationStatusController";
+import type { DiagnosticResult, DiagnosticSeverity } from "../diagnostics/diagnostic";
+import type { DiagnosticsController } from "../diagnostics/diagnosticsController";
 import type { ManagedProcessDescriptor, ManagedProcessKind, ProcessManager } from "../execution/processManager";
 import type { ActivityEntry, ActivityLog } from "../state/activityLog";
 import type { ProjectState, ProjectStateStore } from "../state/projectState";
-import { describeServerState, ICON_BLOCKED, serverStateIcon } from "./serverStatus";
+import { describeServerState, ICON_BLOCKED, ICON_FAILED, serverStateIcon, type StatusIcon } from "./serverStatus";
 
 /** How many trailing lines of raw server output the Dashboard shows per server - a glance, not a log viewer. */
 const LOG_PREVIEW_LINE_COUNT = 6;
@@ -120,7 +121,7 @@ export class DashboardPanelController implements vscode.Disposable {
     private readonly processManager: ProcessManager,
     private readonly extensionUri: vscode.Uri,
     private readonly activityLog: ActivityLog,
-    private readonly migrationStatusController: MigrationStatusController,
+    private readonly diagnosticsController: DiagnosticsController,
     private readonly extension: vscode.Extension<unknown>
   ) {
     this.disposables.push(
@@ -132,7 +133,9 @@ export class DashboardPanelController implements vscode.Disposable {
       }),
       projectState.onDidChangeState(() => this.render()),
       activityLog.onDidChange(() => this.render()),
-      migrationStatusController.onDidChangeStatus(() => this.render()),
+      // Re-renders from cached results only - never triggers a diagnostics
+      // refresh itself (that would create a refresh -> render -> refresh loop).
+      diagnosticsController.onDidChangeDiagnostics(() => this.render()),
       processManager.onDidReceiveOutput((kind, chunk) => this.appendOutput(kind, chunk))
     );
   }
@@ -379,13 +382,7 @@ export class DashboardPanelController implements vscode.Disposable {
       packageManagerStatCard(frontendRuntime?.packageManager)
     ].join("\n");
 
-    const sections = [`<div class="stat-grid">${statCards}</div>`];
-
-    if (backend !== undefined && this.migrationStatusController.getStatus() === "pending") {
-      sections.push(
-        `<div class="row action alert" role="button" tabindex="0" data-command-id="${COMMAND_MIGRATE}">${codiconGlyph("warning")}<span class="label">Unapplied migrations - click to migrate</span></div>`
-      );
-    }
+    const sections = [`<div class="stat-grid">${statCards}</div>`, this.buildProjectHealthSection()];
 
     if (canOpenApplication) {
       sections.push(
@@ -419,6 +416,24 @@ export class DashboardPanelController implements vscode.Disposable {
     sections.push(section("Quick Actions", "zap", "charts.yellow", tileGroups.join("\n")));
 
     return sections.join("\n");
+  }
+
+  /**
+   * Pure consumer of already-computed results (spec: "Dashboard soll Results
+   * nur konsumieren/rendern") - no checks, no detection, no dependency/migration
+   * logic here. Replaces the old hardcoded "Unapplied migrations" row: that
+   * exact condition is now one of possibly several DiagnosticResults rendered
+   * generically here, so it is never shown twice.
+   */
+  private buildProjectHealthSection(): string {
+    const diagnostics = this.diagnosticsController.getResults();
+    if (diagnostics.length === 0) {
+      return section("Project Health", "pulse", "charts.green", `<p class="health-summary">No issues detected.</p>`);
+    }
+
+    const summary = `<p class="health-summary">${diagnostics.length} issue${diagnostics.length === 1 ? "" : "s"}</p>`;
+    const rows = diagnostics.map((diagnostic) => buildDiagnosticRow(diagnostic)).join("\n");
+    return section("Project Health", "pulse", "charts.green", `${summary}<div class="diagnostics-list">${rows}</div>`);
   }
 
   private buildHelpTab(): string {
@@ -2414,6 +2429,39 @@ function buildAppsOverview(apps: readonly DjangoApp[]): string {
     .join("\n");
 }
 
+/**
+ * Distinct icon shape per severity (not just color), so meaning survives
+ * without relying on color alone. Reuses the exact same StatusIcon constants
+ * the tree/status bar already use for "failed"/"blocked" states, rather than
+ * inventing a second color vocabulary for the same concepts.
+ */
+function diagnosticSeverityIcon(severity: DiagnosticSeverity): StatusIcon {
+  switch (severity) {
+    case "error":
+      return ICON_FAILED;
+    case "warning":
+      return ICON_BLOCKED;
+    case "info":
+      return { id: "info", color: "charts.blue" };
+  }
+}
+
+/**
+ * Renders a DiagnosticResult exactly as the domain provided it - no code-based
+ * message rewriting, no action inferred beyond `diagnostic.action` itself (a
+ * diagnostic without an action renders no button, e.g. fastapi.dependency.missing).
+ * The action button posts through the same generic data-command-id mechanism
+ * every other Dashboard command already uses - no per-code click handling.
+ */
+function buildDiagnosticRow(diagnostic: DiagnosticResult): string {
+  const icon = diagnosticSeverityIcon(diagnostic.severity);
+  const action =
+    diagnostic.action === undefined
+      ? ""
+      : `<button type="button" class="tool-button diagnostic-action" data-command-id="${escapeHtml(diagnostic.action.commandId)}">${escapeHtml(diagnostic.action.label)}</button>`;
+  return `<div class="diagnostic-row">${iconBadge(icon.id, icon.color ?? "foreground", "small")}<span class="diagnostic-message">${escapeHtml(diagnostic.message)}</span>${action}</div>`;
+}
+
 const ACTIVITY_ICON_BY_KIND: Record<ActivityEntry["kind"], { icon: string; color: string }> = {
   success: { icon: "check", color: "charts.green" },
   failure: { icon: "error", color: "charts.red" },
@@ -2522,7 +2570,12 @@ const STYLES = `
 
   .open-app { margin-top: 14px; font-weight: 500; color: var(--vscode-textLink-foreground); }
   .open-app:hover { color: var(--vscode-textLink-activeForeground); }
-  .row.alert { margin-top: 14px; font-weight: 500; color: var(--vscode-charts-yellow, #cca700); }
+
+  .health-summary { margin: 0 0 8px; color: var(--vscode-descriptionForeground); }
+  .diagnostics-list { display: flex; flex-direction: column; gap: 4px; }
+  .diagnostic-row { display: flex; align-items: center; gap: 10px; padding: 6px 4px; }
+  .diagnostic-row .diagnostic-message { flex: 1; line-height: 1.4; }
+  .diagnostic-row .diagnostic-action { flex: none; }
 
   .activity-list { display: flex; flex-direction: column; gap: 2px; }
   .activity-item { display: flex; align-items: center; gap: 8px; padding: 5px 4px; }

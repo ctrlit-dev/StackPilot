@@ -105,9 +105,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const migrationStatusController = new MigrationStatusController(spawner, projectState, djangoBackendAdapter);
 
-  // No UI consumes this yet (DIAGNOSTICS-1B) - getResults()/onDidChangeDiagnostics()
-  // are read by a later package. Refreshes only on events that can actually change
-  // a 1B result; deliberately not subscribed to processManager.onDidChangeState.
+  // Consumed by DashboardPanelController's Project Health section below.
+  // Refreshes only on events that can actually change a 1B/1C result;
+  // deliberately not subscribed to processManager.onDidChangeState.
   const diagnosticsController = new DiagnosticsController(
     [pythonEnvironmentCheck, frameworkDependencyCheck, nodeDependenciesCheck, createDjangoMigrationsCheck(migrationStatusController)],
     projectState,
@@ -124,7 +124,7 @@ export function activate(context: vscode.ExtensionContext): void {
     processManager,
     context.extensionUri,
     activityLog,
-    migrationStatusController,
+    diagnosticsController,
     context.extension
   );
   const openDashboardCommand = vscode.commands.registerCommand(COMMAND_OPEN_DASHBOARD, () => dashboardController.open());
