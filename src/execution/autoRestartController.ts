@@ -63,7 +63,8 @@ export class AutoRestartController implements vscode.Disposable {
   }
 
   private handleCrash(descriptor: ManagedProcessDescriptor): void {
-    if (!this.policyProvider.getPolicy(descriptor.kind).autoRestartEnabled) {
+    const policy = this.policyProvider.getPolicy(descriptor.kind);
+    if (!policy.autoRestartEnabled) {
       return;
     }
     if (descriptor.executable === undefined || descriptor.args === undefined || descriptor.cwd === undefined) {
@@ -76,15 +77,15 @@ export class AutoRestartController implements vscode.Disposable {
     const delay = nextRestartDelayMs(DEFAULT_CRASH_LOOP_POLICY, attempt);
     if (delay === undefined) {
       this.outputChannel.appendLine(
-        `${descriptor.kind}: gave up auto-restarting after ${DEFAULT_CRASH_LOOP_POLICY.maxConsecutiveRestarts} consecutive crashes.`
+        `${policy.displayName}: gave up auto-restarting after ${DEFAULT_CRASH_LOOP_POLICY.maxConsecutiveRestarts} consecutive crashes.`
       );
       void vscode.window.showErrorMessage(
-        `StackPilot: the ${descriptor.kind} server keeps crashing and was not restarted automatically after ${DEFAULT_CRASH_LOOP_POLICY.maxConsecutiveRestarts} attempts. Fix the underlying error, then start it again manually.`
+        `StackPilot: the ${policy.displayName} server keeps crashing and was not restarted automatically after ${DEFAULT_CRASH_LOOP_POLICY.maxConsecutiveRestarts} attempts. Fix the underlying error, then start it again manually.`
       );
       return;
     }
 
-    this.outputChannel.appendLine(`${descriptor.kind}: crashed, auto-restarting in ${delay}ms (attempt ${attempt}).`);
+    this.outputChannel.appendLine(`${policy.displayName}: crashed, auto-restarting in ${delay}ms (attempt ${attempt}).`);
     const { kind, executable, args, cwd, expectedPort } = descriptor;
     setTimeout(() => {
       void this.processManager.start(kind, { executable, args, cwd, expectedPort });

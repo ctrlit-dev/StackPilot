@@ -211,7 +211,7 @@ export function activate(context: vscode.ExtensionContext): void {
       outputChannel.appendLine(
         `${descriptor.kind} ${descriptor.state}${descriptor.lastError === undefined ? "" : `: ${descriptor.lastError}`}`
       );
-      const label = descriptor.kind === "backend" ? "Backend" : "Frontend";
+      const label = serviceLifecyclePolicyProvider.getPolicy(descriptor.kind).displayName;
       if (descriptor.state === "running") {
         activityLog.record(`${label} started`, "success");
       } else if (descriptor.state === "stopped") {
