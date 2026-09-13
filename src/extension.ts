@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { djangoBackendAdapter } from "./adapters/djangoBackendAdapter";
 import { registerCommands } from "./commands/registerCommands";
 import { readStackPilotConfiguration } from "./config/configuration";
 import {
@@ -154,6 +155,7 @@ export function activate(context: vscode.ExtensionContext): void {
     projectFileWriter,
     projectState,
     processManager,
+    backendAdapter: djangoBackendAdapter,
     spawner,
     portChecker,
     terminalManager,

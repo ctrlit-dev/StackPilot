@@ -1,4 +1,5 @@
 import type * as vscode from "vscode";
+import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
 import type { FileSystemProbe } from "../detection/fileSystem";
 import type { FrontendUrlTracker } from "../execution/frontendUrlTracker";
 import type { InteractiveTerminalManager } from "../execution/interactiveTerminalManager";
@@ -18,6 +19,7 @@ export interface CommandContext {
   readonly projectFileWriter: ProjectFileWriter;
   readonly projectState: ProjectStateStore;
   readonly processManager: ProcessManager;
+  readonly backendAdapter: BackendFrameworkAdapter;
   readonly spawner: ProcessSpawner;
   readonly portChecker: PortChecker;
   readonly terminalManager: ServerTerminalManager;

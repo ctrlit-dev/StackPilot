@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { COMMAND_OPEN_SETTINGS, COMMAND_START_BACKEND, COMMAND_STOP_BACKEND } from "../constants";
-import { buildDjangoRunServerCommand } from "../execution/backendCommand";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
 import { offerToOpenInBrowser } from "./openInBrowserOffer";
@@ -24,7 +23,7 @@ export async function startBackend(context: CommandContext): Promise<void> {
     return;
   }
 
-  const plan = planBackendStart(state.detectedProject, state.configuration);
+  const plan = planBackendStart(state.detectedProject, state.configuration, context.backendAdapter);
   if (plan.kind === "no-backend") {
     showActionableError(context.outputChannel, "Django could not be started because no Django project was detected.");
     return;
@@ -53,7 +52,7 @@ export async function startBackend(context: CommandContext): Promise<void> {
     if (backend === undefined || python === undefined) {
       return;
     }
-    command = buildDjangoRunServerCommand(python, backend, state.configuration.backendHost, suggestedPort);
+    command = context.backendAdapter.buildStartCommand(python, backend, state.configuration.backendHost, suggestedPort);
   }
 
   context.terminalManager.reveal("backend");

@@ -43,7 +43,7 @@ export async function startAll(context: CommandContext): Promise<void> {
     return;
   }
 
-  const backendPlan = planBackendStart(state.detectedProject, state.configuration);
+  const backendPlan = planBackendStart(state.detectedProject, state.configuration, context.backendAdapter);
   const frontendPlan = planFrontendStart(state.detectedProject, state.configuration);
 
   const optionsByKind: Partial<Record<ManagedProcessKind, StartProcessOptions>> = {};

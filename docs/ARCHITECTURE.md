@@ -9,6 +9,7 @@ security boundaries.
 ```text
 src/
 ├── extension.ts       composition/bootstrap only - wires everything below
+├── adapters/            framework-specific knowledge (e.g. Django's start command)
 ├── detection/          read-only: find Django/Vite/Python/package manager
 ├── execution/           run things: process spawning, lifecycle, terminals
 ├── project/             mutate things: New Project scaffold, file writing
@@ -33,6 +34,36 @@ suite can cover process lifecycle, scaffold orchestration, and file
 generation without ever touching a real process or the real filesystem - the
 adapters are the only code that talks to Node/OS APIs directly, and they are
 kept intentionally small.
+
+## Framework adapters
+
+`ProcessManager` (see below) knows services, not frameworks: it starts and
+tracks a `ServiceId` given an `executable`/`args`/`cwd`, with zero knowledge
+of Django, Vite, or anything else. The framework-specific knowledge that
+decides *what* that `executable`/`args`/`cwd` should be for a given backend
+framework lives in `adapters/` instead - today just
+`adapters/djangoBackendAdapter.ts`, which builds Django's
+`<python> manage.py runserver <host>:<port>` command behind the small
+`BackendFrameworkAdapter` contract (`adapters/backendFrameworkAdapter.ts`).
+`commands/startPlans.ts`'s `planBackendStart()` decides *whether* a start is
+possible (backend/Python detected) and delegates to an injected
+`BackendFrameworkAdapter` for the command shape; it has no Django knowledge
+of its own. The adapter is wired in once, explicitly, at the composition root
+(`extension.ts` passes `djangoBackendAdapter` into `CommandContext`) - there
+is no adapter registry yet, since exactly one backend framework exists today.
+
+**`ServiceId` and `FrameworkAdapterId` are deliberately different types and
+must never be compared or unioned.** A `ServiceId` (`"backend"`, `"frontend"`,
+later perhaps `"worker"`) names a process slot `ProcessManager` tracks; a
+`FrameworkAdapterId` (`"django"`) names which framework's rules built that
+process's command. Which adapter builds a given service's command is a
+decision made above `ProcessManager` (currently: `backend` always uses
+`djangoBackendAdapter`), not something the id strings themselves encode.
+
+This extraction currently covers only the backend *start* command - Django's
+other operations (migrate, shell, createsuperuser, ...), Django app
+detection, and the frontend/Vite side are unchanged and still live where they
+did before.
 
 ## Detection (read-only)
 
