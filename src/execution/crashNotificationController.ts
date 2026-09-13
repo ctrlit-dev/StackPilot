@@ -1,23 +1,25 @@
 import * as vscode from "vscode";
-import { COMMAND_START_BACKEND, COMMAND_START_FRONTEND } from "../constants";
-import type { ProjectStateStore } from "../state/projectState";
-import type { ManagedProcessDescriptor, ManagedProcessKind, ProcessManager } from "./processManager";
+import type { ManagedProcessDescriptor, ProcessManager } from "./processManager";
+import type { ServiceLifecyclePolicyProvider } from "./serviceLifecyclePolicy";
 import type { ServerTerminalManager } from "./terminalManager";
 
 /**
  * An active toast for an unexpected crash. AutoRestartController already
- * handles the crash itself when auto-restart is enabled for that server
+ * handles the crash itself when auto-restart is enabled for that service
  * (with its own "gave up after N attempts" notification) - this covers the
  * common case where auto-restart is off, where a crash would otherwise only
  * show up as a color change in the tree/dashboard/status bar that someone
- * might not be looking at.
+ * might not be looking at. The service's display label and whether it
+ * offers a "Restart" action both come from the injected
+ * `ServiceLifecyclePolicyProvider` - this controller has no knowledge of
+ * which services exist or what to call them.
  */
 export class CrashNotificationController implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
 
   public constructor(
     processManager: ProcessManager,
-    private readonly projectState: ProjectStateStore,
+    private readonly policyProvider: ServiceLifecyclePolicyProvider,
     private readonly terminalManager: ServerTerminalManager
   ) {
     this.disposables.push(processManager.onDidChangeState((descriptor) => this.onStateChanged(descriptor)));
@@ -30,30 +32,23 @@ export class CrashNotificationController implements vscode.Disposable {
   }
 
   private onStateChanged(descriptor: ManagedProcessDescriptor): void {
-    if (descriptor.state !== "failed" || this.isAutoRestartEnabled(descriptor.kind)) {
+    if (descriptor.state !== "failed" || this.policyProvider.getPolicy(descriptor.kind).autoRestartEnabled) {
       return;
     }
     void this.notify(descriptor);
   }
 
-  private isAutoRestartEnabled(kind: ManagedProcessKind): boolean {
-    const configuration = this.projectState.getState().configuration;
-    if (configuration === undefined) {
-      return false;
-    }
-    return kind === "backend" ? configuration.backendAutoRestart : configuration.frontendAutoRestart;
-  }
-
   private async notify(descriptor: ManagedProcessDescriptor): Promise<void> {
-    const label = descriptor.kind === "backend" ? "Backend" : "Frontend";
+    const policy = this.policyProvider.getPolicy(descriptor.kind);
+    const actions = policy.restartCommandId === undefined ? ["Show Output"] : ["Restart", "Show Output"];
+
     const choice = await vscode.window.showErrorMessage(
-      `StackPilot: ${label} crashed${descriptor.lastError === undefined ? "." : `: ${descriptor.lastError}`}`,
-      "Restart",
-      "Show Output"
+      `StackPilot: ${policy.displayName} crashed${descriptor.lastError === undefined ? "." : `: ${descriptor.lastError}`}`,
+      ...actions
     );
 
-    if (choice === "Restart") {
-      await vscode.commands.executeCommand(descriptor.kind === "backend" ? COMMAND_START_BACKEND : COMMAND_START_FRONTEND);
+    if (choice === "Restart" && policy.restartCommandId !== undefined) {
+      await vscode.commands.executeCommand(policy.restartCommandId);
     } else if (choice === "Show Output") {
       this.terminalManager.reveal(descriptor.kind);
     }

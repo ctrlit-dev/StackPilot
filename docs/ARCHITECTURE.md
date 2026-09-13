@@ -192,10 +192,9 @@ the constructor (defaulting to `DEFAULT_SERVICE_REGISTRY` so existing callers
 are unaffected). Adding a third service (a database, a worker, ...) later is
 a matter of constructing a `ServiceRegistry` with more ids, not a change to
 this class. `ServiceRegistry` is deliberately minimal - just an ordered list
-of ids - because nothing in the current architecture needs per-service
-metadata (labels, auto-start behavior, ...) yet; those decisions still live
-where they always have, in the UI layer and each command's own plan function,
-and should only move into the registry once a real caller needs them there.
+of ids, answering only "which services exist" - it does not grow into a
+generic `ServiceDefinition` bag; a service's *behavior* (auto-restart,
+crash-notification label/action) is a separate concern, described next.
 
 `ProcessManager` never shells out to a string command: every spawn goes
 through `ProcessSpawner` (`execution/processSpawner.ts`), whose real
@@ -234,6 +233,30 @@ Genuinely interactive flows - Django Shell, Create Superuser - instead use a
 real `vscode.window.createTerminal({ shellPath, shellArgs })`, because they
 need real stdin (a REPL, a password prompt) that a captured child process or
 an output-only Pseudoterminal cannot provide.
+
+**Service lifecycle policy is keyed by `ServiceId`, not `FrameworkAdapterId`.**
+`AutoRestartController` (restart on an unexpected crash, bounded by
+`crashLoopPolicy.ts`'s fixed attempt/backoff rules, unchanged) and
+`CrashNotificationController` (the crash toast with Restart/Show Output
+actions) used to each carry their own `kind === "backend" ? ... : ...`
+ternary for "is auto-restart on" and "what do I call this service". Both now
+take an injected `ServiceLifecyclePolicyProvider`
+(`execution/serviceLifecyclePolicy.ts`) instead - `getPolicy(serviceId)`
+returns `{ autoRestartEnabled, displayName, restartCommandId? }`. Neither
+controller branches on a service id itself anymore, and `ProcessManager`
+remains unaware of display labels, VS Code commands, or configuration - it
+never gained a dependency on this provider. The real, product-composed
+provider (`createDefaultServiceLifecyclePolicyProvider`) still reads the
+pre-existing `stackPilot.backend.autoRestartOnCrash`/
+`stackPilot.frontend.autoRestartOnCrash` settings verbatim (no config
+migration) and re-reads `ProjectStateStore` on every call rather than a
+snapshot, preserving the pre-existing "current config at crash time"
+behavior. **Unknown services use an explicit safe fallback
+(`fallbackServiceLifecyclePolicy`: auto-restart off, the raw id as its own
+display name, no restart command) rather than ever inheriting frontend's
+policy** - a service the provider does not specifically recognize used to
+silently fall down the `: "Frontend"` branch of the old ternary; it no
+longer can.
 
 ## New Project scaffolding (the one layer allowed to mutate)
 
