@@ -1,6 +1,6 @@
+import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
 import type { DetectedProject } from "../detection/projectDetector";
 import type { StackPilotConfiguration } from "../config/configurationModel";
-import { buildDjangoRunServerCommand } from "../execution/backendCommand";
 import { buildFrontendDevCommand } from "../execution/frontendCommand";
 import type { StartProcessOptions } from "../execution/processManager";
 
@@ -9,7 +9,9 @@ import type { StartProcessOptions } from "../execution/processManager";
  * given the current detection results". Kept separate from the vscode
  * command handlers so the branching (spec §44 error taxonomy: no backend, no
  * python, missing/ambiguous package manager) is unit-testable without the
- * Extension Host.
+ * Extension Host. `planBackendStart` itself has no knowledge of Django (or
+ * any other framework)'s command shape - that is the injected adapter's job;
+ * this function only decides whether a start is possible at all.
  */
 export type BackendStartPlan =
   | { readonly kind: "ready"; readonly command: StartProcessOptions }
@@ -18,7 +20,8 @@ export type BackendStartPlan =
 
 export function planBackendStart(
   detectedProject: DetectedProject | undefined,
-  configuration: StackPilotConfiguration
+  configuration: StackPilotConfiguration,
+  backendAdapter: BackendFrameworkAdapter
 ): BackendStartPlan {
   const backend = detectedProject?.backend.selected;
   if (backend === undefined) {
@@ -32,7 +35,7 @@ export function planBackendStart(
 
   return {
     kind: "ready",
-    command: buildDjangoRunServerCommand(python, backend, configuration.backendHost, configuration.backendPort)
+    command: backendAdapter.buildStartCommand(python, backend, configuration.backendHost, configuration.backendPort)
   };
 }
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { djangoBackendAdapter } from "../../src/adapters/djangoBackendAdapter";
 import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
 import type { DetectedProject } from "../../src/detection/projectDetector";
 import { planBackendStart, planFrontendStart } from "../../src/commands/startPlans";
@@ -17,12 +18,12 @@ function detectedProject(overrides: Partial<DetectedProject> = {}): DetectedProj
 }
 
 void test("planBackendStart reports no-backend when nothing was detected", () => {
-  const plan = planBackendStart(detectedProject(), DEFAULT_CONFIGURATION);
+  const plan = planBackendStart(detectedProject(), DEFAULT_CONFIGURATION, djangoBackendAdapter);
   assert.equal(plan.kind, "no-backend");
 });
 
 void test("planBackendStart reports no-backend when detection has not run yet", () => {
-  const plan = planBackendStart(undefined, DEFAULT_CONFIGURATION);
+  const plan = planBackendStart(undefined, DEFAULT_CONFIGURATION, djangoBackendAdapter);
   assert.equal(plan.kind, "no-backend");
 });
 
@@ -35,7 +36,8 @@ void test("planBackendStart reports no-python when a backend is detected but no 
         diagnostics: []
       }
     }),
-    DEFAULT_CONFIGURATION
+    DEFAULT_CONFIGURATION,
+    djangoBackendAdapter
   );
   assert.equal(plan.kind, "no-python");
 });
@@ -54,13 +56,46 @@ void test("planBackendStart builds the runserver command when everything is dete
         diagnostics: []
       }
     }),
-    { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 8000 }
+    { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 8000 },
+    djangoBackendAdapter
   );
 
   assert.equal(plan.kind, "ready");
   if (plan.kind === "ready") {
     assert.equal(plan.command.executable, "/workspace/backend/.venv/bin/python");
     assert.deepEqual(plan.command.args, ["/workspace/backend/manage.py", "runserver", "127.0.0.1:8000"]);
+  }
+});
+
+void test("planBackendStart delegates the actual command shape to the injected adapter, not a hard-coded one", () => {
+  // Proves planBackendStart is adapter-driven rather than Django-specific
+  // itself: a fake adapter with a deliberately different command shape must
+  // be reflected verbatim in the resulting plan.
+  const fakeAdapter = {
+    id: "fake-framework",
+    buildStartCommand: () => ({ executable: "fake-executable", args: ["fake-arg"], cwd: "/fake/cwd", expectedPort: 1234 })
+  };
+
+  const plan = planBackendStart(
+    detectedProject({
+      backend: {
+        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        candidates: [],
+        diagnostics: []
+      },
+      python: {
+        selected: { executablePath: "/workspace/backend/.venv/bin/python", source: "venv", validation: "exists" },
+        candidates: [],
+        diagnostics: []
+      }
+    }),
+    DEFAULT_CONFIGURATION,
+    fakeAdapter
+  );
+
+  assert.equal(plan.kind, "ready");
+  if (plan.kind === "ready") {
+    assert.deepEqual(plan.command, { executable: "fake-executable", args: ["fake-arg"], cwd: "/fake/cwd", expectedPort: 1234 });
   }
 });
 
