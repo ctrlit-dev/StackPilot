@@ -78,14 +78,35 @@ registry yet, since exactly one backend framework exists today.
 **`ServiceId` and `FrameworkAdapterId` are deliberately different types and
 must never be compared or unioned.** A `ServiceId` (`"backend"`, `"frontend"`,
 later perhaps `"worker"`) names a process slot `ProcessManager` tracks; a
-`FrameworkAdapterId` (`"django"`) names which framework's rules built that
-process's command. Which adapter builds a given service's command is a
-decision made above `ProcessManager` (currently: `backend` always uses
-`djangoBackendAdapter`), not something the id strings themselves encode.
+`FrameworkAdapterId` (`"django"`, `"vite"`) names which framework's rules
+built that process's command or parsed its output. Which adapter backs a
+given service is a decision made above `ProcessManager` (currently: `backend`
+always uses `djangoBackendAdapter`, `frontend`'s dev-server-URL tracking
+always uses `viteFrontendAdapter`), not something the id strings themselves
+encode. `FrameworkAdapterId` itself is shared (`adapters/frameworkAdapterId.ts`)
+since the id concept is the same regardless of adapter kind.
+
+There is also a `FrontendFrameworkAdapter` contract
+(`adapters/frontendFrameworkAdapter.ts`), implemented by
+`adapters/viteFrontendAdapter.ts` - but it is **intentionally much smaller**
+than `BackendFrameworkAdapter`: a single `parseDevServerUrl(outputChunk)`
+method. Adapters are capability-driven, not forced into symmetry - Django and
+Vite genuinely need different things. Almost everything about running a
+frontend (package manager choice, `dev`/`build`/`test`/arbitrary script
+execution) is already generic Node/package-manager logic
+(`execution/frontendCommand.ts`, `commands/frontendOperationPlans.ts`) and
+stays outside any adapter; the one real Vite-specific behavior is reading the
+dev server's actual bound URL from its own colored stdout (`"Local: ..."`),
+because Vite may not end up on the configured port and every dev server
+reports this differently. `execution/frontendUrlTracker.ts` stays a generic
+output/state tracker (accumulate a bounded buffer, remember the result,
+`reset()`) with the adapter injected via its constructor - it has no idea
+what Vite's output looks like.
 
 Django app detection (`detectDjangoApps`), the New Project scaffold wizard,
-and the frontend/Vite side are unchanged and still live where they did
-before - this boundary currently covers backend start and operations only.
+and frontend/Vite *detection* (`detection/frontendDetector.ts`) are unchanged
+and still live where they did before - this boundary currently covers
+backend start/operations and frontend dev-server-URL parsing only.
 
 ## Detection (read-only)
 
