@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ProcessManager, type StartProcessOptions } from "../../src/execution/processManager";
+import { DEFAULT_SERVICE_REGISTRY, ServiceRegistry } from "../../src/execution/serviceRegistry";
 import { FakeProcessSpawner } from "./fakes/fakeProcessSpawner";
 
 function backendOptions(overrides: Partial<StartProcessOptions> = {}): StartProcessOptions {
@@ -294,4 +295,106 @@ void test("backend and frontend states are tracked independently", async () => {
 
   assert.equal(manager.getState("backend").state, "running");
   assert.equal(manager.getState("frontend").state, "failed");
+});
+
+// --- Generic development services (Phase 1: ManagedProcessKind is an open ServiceId, not a fixed backend/frontend pair) ---
+
+function workerOptions(overrides: Partial<StartProcessOptions> = {}): StartProcessOptions {
+  return {
+    executable: "python",
+    args: ["-m", "celery", "-A", "app", "worker"],
+    cwd: "/workspace/backend",
+    ...overrides
+  };
+}
+
+void test("with no registry argument, a manager behaves exactly as the default two-service registry", () => {
+  const manager = new ProcessManager(new FakeProcessSpawner());
+
+  assert.deepEqual(manager.getRegisteredServiceIds(), DEFAULT_SERVICE_REGISTRY.getServiceIds());
+});
+
+void test("start()/stop() work for a service id that is not part of the registry at all", async () => {
+  // The registry only governs startAll/stopAll's universe - individual
+  // start/stop must keep working for any id, since the state map is keyed
+  // by whatever id the caller uses.
+  const spawner = new FakeProcessSpawner();
+  const handle = spawner.queueSuccess();
+  const manager = new ProcessManager(spawner); // default registry: backend, frontend only
+
+  const result = await manager.start("worker", workerOptions());
+
+  assert.equal(result.outcome, "started");
+  assert.equal(manager.getState("worker").state, "running");
+
+  const stopResult = await manager.stop("worker");
+  assert.equal(stopResult.outcome, "stopped");
+  handle.emitExit({ code: 0, signal: null });
+  assert.equal(manager.getState("worker").state, "stopped");
+});
+
+void test("a custom registry lets startAll/stopAll manage more than two services", async () => {
+  const spawner = new FakeProcessSpawner();
+  const backendHandle = spawner.queueSuccess();
+  const frontendHandle = spawner.queueSuccess();
+  const workerHandle = spawner.queueSuccess();
+  const registry = new ServiceRegistry(["backend", "frontend", "worker"]);
+  const manager = new ProcessManager(spawner, registry);
+
+  assert.deepEqual(manager.getRegisteredServiceIds(), ["backend", "frontend", "worker"]);
+
+  const results = await manager.startAll({
+    backend: backendOptions(),
+    frontend: frontendOptions(),
+    worker: workerOptions()
+  });
+
+  assert.equal(results.backend.outcome, "started");
+  assert.equal(results.frontend.outcome, "started");
+  assert.equal(results.worker.outcome, "started");
+  assert.equal(manager.getState("worker").state, "running");
+
+  const stopResults = await manager.stopAll();
+  assert.equal(stopResults.backend.outcome, "stopped");
+  assert.equal(stopResults.frontend.outcome, "stopped");
+  assert.equal(stopResults.worker.outcome, "stopped");
+
+  backendHandle.emitExit({ code: 0, signal: null });
+  frontendHandle.emitExit({ code: 0, signal: null });
+  workerHandle.emitExit({ code: 0, signal: null });
+  assert.equal(manager.getState("worker").state, "stopped");
+});
+
+void test("startAll with a 3-service registry still reports 'skipped' for a registered service the caller omitted", async () => {
+  const spawner = new FakeProcessSpawner();
+  spawner.queueSuccess();
+  const registry = new ServiceRegistry(["backend", "frontend", "worker"]);
+  const manager = new ProcessManager(spawner, registry);
+
+  const results = await manager.startAll({ backend: backendOptions() });
+
+  assert.equal(results.backend.outcome, "started");
+  assert.equal(results.frontend.outcome, "skipped");
+  assert.equal(results.worker.outcome, "skipped");
+});
+
+void test("a third registered service can be started and stopped independently of backend/frontend", async () => {
+  const spawner = new FakeProcessSpawner();
+  spawner.queueSuccess();
+  const backendHandle = spawner.queueSuccess();
+  const registry = new ServiceRegistry(["backend", "frontend", "worker"]);
+  const manager = new ProcessManager(spawner, registry);
+
+  await manager.start("worker", workerOptions());
+  await manager.start("backend", backendOptions());
+  assert.equal(manager.getState("worker").state, "running");
+  assert.equal(manager.getState("backend").state, "running");
+
+  await manager.stop("worker");
+  assert.equal(manager.getState("worker").state, "stopping");
+  assert.equal(manager.getState("backend").state, "running", "stopping the worker must not affect the backend");
+
+  backendHandle.emitExit({ code: 1, signal: null });
+  assert.equal(manager.getState("backend").state, "failed", "the backend's own crash is tracked independently of the worker's stop");
+  assert.equal(manager.getState("worker").state, "stopping", "the worker's in-flight stop is unaffected by the backend crashing");
 });

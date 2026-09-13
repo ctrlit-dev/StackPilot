@@ -22,6 +22,7 @@ import { NodeProcessSpawner } from "./execution/nodeProcessSpawner";
 import { OperationTerminal } from "./execution/operationTerminal";
 import { NodePortChecker } from "./execution/portAvailability";
 import { ProcessManager } from "./execution/processManager";
+import { DEFAULT_SERVICE_REGISTRY } from "./execution/serviceRegistry";
 import { ServerTerminalManager } from "./execution/terminalManager";
 import { NodeProjectFileWriter } from "./project/nodeProjectFileWriter";
 import { WorkspaceTrustService } from "./security/workspaceTrust";
@@ -42,7 +43,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const fileSystem = new NodeFileSystemProbe();
   const projectFileWriter = new NodeProjectFileWriter();
   const spawner = new NodeProcessSpawner();
-  const processManager = new ProcessManager(spawner);
+  const processManager = new ProcessManager(spawner, DEFAULT_SERVICE_REGISTRY);
   const portChecker = new NodePortChecker();
   const terminalManager = new ServerTerminalManager(processManager);
   const frontendUrlTracker = new FrontendUrlTracker();
