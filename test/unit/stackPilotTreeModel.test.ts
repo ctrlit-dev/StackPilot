@@ -271,6 +271,7 @@ void test("always includes the Tools section with New Project/Initialize Project
       "tools.newProject",
       "tools.initializeProject",
       "tools.openDashboard",
+      "tools.devTools",
       "tools.generateDebugConfig",
       "tools.refresh",
       "tools.openLogs",

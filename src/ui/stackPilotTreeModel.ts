@@ -18,6 +18,7 @@ import {
   COMMAND_OPEN_BACKEND_ENV_FILE,
   COMMAND_OPEN_DASHBOARD,
   COMMAND_OPEN_DB_SHELL,
+  COMMAND_OPEN_DEV_TOOLS,
   COMMAND_OPEN_DJANGO_SHELL,
   COMMAND_OPEN_FRONTEND_ENV_FILE,
   COMMAND_OPEN_LOGS,
@@ -276,6 +277,7 @@ function buildToolsSection(): TreeNode {
       { id: "tools.newProject", label: "New Project", commandId: COMMAND_CREATE_PROJECT, icon: { id: "new-folder" } },
       { id: "tools.initializeProject", label: "Initialize Project", commandId: COMMAND_INITIALIZE_PROJECT, icon: { id: "rocket" } },
       { id: "tools.openDashboard", label: "Open Dashboard", commandId: COMMAND_OPEN_DASHBOARD, icon: { id: "open-preview" } },
+      { id: "tools.devTools", label: "Dev Tools", commandId: COMMAND_OPEN_DEV_TOOLS, icon: { id: "wrench" } },
       {
         id: "tools.generateDebugConfig",
         label: "Generate Debug Configuration",

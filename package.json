@@ -107,6 +107,12 @@
         "enablement": "stackPilot.hasSelectedWorkspace"
       },
       {
+        "command": "stackPilot.openDevTools",
+        "title": "Open Dev Tools",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasSelectedWorkspace"
+      },
+      {
         "command": "stackPilot.selectWorkspace",
         "title": "Select Workspace Folder",
         "category": "StackPilot",
@@ -577,6 +583,7 @@
     "@vscode/codicons": "^0.0.46-24",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
+    "bcryptjs": "^3.0.3",
     "cross-spawn": "^7.0.6",
     "esbuild": "^0.28.2",
     "eslint": "^10.10.0",

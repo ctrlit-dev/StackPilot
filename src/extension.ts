@@ -3,6 +3,7 @@ import { registerCommands } from "./commands/registerCommands";
 import { readStackPilotConfiguration } from "./config/configuration";
 import {
   COMMAND_OPEN_DASHBOARD,
+  COMMAND_OPEN_DEV_TOOLS,
   COMMAND_REFRESH,
   COMMAND_SELECT_WORKSPACE,
   DASHBOARD_PANEL_VIEW_TYPE,
@@ -96,6 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.extension
   );
   const openDashboardCommand = vscode.commands.registerCommand(COMMAND_OPEN_DASHBOARD, () => dashboardController.open());
+  const openDevToolsCommand = vscode.commands.registerCommand(COMMAND_OPEN_DEV_TOOLS, () => dashboardController.open("devtools"));
   const dashboardSerializer = vscode.window.registerWebviewPanelSerializer(DASHBOARD_PANEL_VIEW_TYPE, {
     deserializeWebviewPanel: (panel) => {
       dashboardController.attach(panel);
@@ -168,6 +170,7 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBar,
     dashboardController,
     openDashboardCommand,
+    openDevToolsCommand,
     dashboardSerializer,
     migrationStatusController,
     autoRestartController,

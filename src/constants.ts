@@ -30,6 +30,7 @@ export const COMMAND_DJANGO_APP_MIGRATE = "stackPilot.djangoAppMigrate";
 export const COMMAND_DJANGO_APP_SHOW_MIGRATIONS = "stackPilot.djangoAppShowMigrations";
 export const COMMAND_DJANGO_APP_TEST = "stackPilot.djangoAppTest";
 export const COMMAND_OPEN_DASHBOARD = "stackPilot.openDashboard";
+export const COMMAND_OPEN_DEV_TOOLS = "stackPilot.openDevTools";
 export const COMMAND_COPY_BACKEND_URL = "stackPilot.copyBackendUrl";
 export const COMMAND_COPY_FRONTEND_URL = "stackPilot.copyFrontendUrl";
 export const COMMAND_OPEN_ADMIN = "stackPilot.openAdmin";

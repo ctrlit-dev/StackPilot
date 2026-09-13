@@ -19,8 +19,21 @@ function copyCodicons() {
   }
 }
 
+/**
+ * The Password Hasher dev tool needs real bcrypt, which isn't something to hand-roll inline like
+ * every other webview tool. bcryptjs's UMD build is dependency-free and browser-safe (uses the Web
+ * Crypto API, not Node's crypto), so it's vendored as a plain <script> the same way codicons are.
+ */
+function copyBcrypt() {
+  const srcFile = path.join(__dirname, "node_modules", "bcryptjs", "umd", "index.js");
+  const outDir = path.join(__dirname, "resources", "vendor");
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.copyFileSync(srcFile, path.join(outDir, "bcrypt.js"));
+}
+
 async function main() {
   copyCodicons();
+  copyBcrypt();
   fs.rmSync(path.join(__dirname, "dist"), { recursive: true, force: true });
 
   const ctx = await esbuild.context({
