@@ -32,7 +32,7 @@ function detectedProject(overrides: LegacyDetectionOverrides = {}): DetectedProj
       rootPath: backend.rootPath,
       frameworkId: "django",
       runtime: { kind: "python", detection: pythonDetection },
-      frameworkMetadata: { kind: "django", managePyPath: backend.managePyPath, apps: [] },
+      frameworkMetadata: { kind: "django", managePyPath: backend.frameworkEntryPath, apps: [] },
       score: backend.score,
       evidence: backend.evidence
     });
@@ -74,7 +74,7 @@ void test("omits the backend configuration when a backend is detected but no Pyt
     workspaceRootPath: "/workspace",
     detectedProject: detectedProject({
       backend: {
-        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
         candidates: [],
         diagnostics: []
       }
@@ -89,7 +89,7 @@ void test("builds a debugpy launch configuration for the detected Django backend
     workspaceRootPath: "/workspace",
     detectedProject: detectedProject({
       backend: {
-        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
         candidates: [],
         diagnostics: []
       },
@@ -145,7 +145,7 @@ void test("adds a full-stack compound only when both backend and frontend config
     workspaceRootPath: "/workspace",
     detectedProject: detectedProject({
       backend: {
-        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
         candidates: [],
         diagnostics: []
       },

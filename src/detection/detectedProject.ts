@@ -136,7 +136,7 @@ export function getDjangoBackendProject(service: DetectedService | undefined): B
   if (service === undefined || metadata === undefined) {
     return undefined;
   }
-  return { rootPath: service.rootPath, managePyPath: metadata.managePyPath, score: service.score, evidence: service.evidence };
+  return { rootPath: service.rootPath, frameworkEntryPath: metadata.managePyPath, score: service.score, evidence: service.evidence };
 }
 
 export function getPythonEnvironment(service: DetectedService | undefined): PythonEnvironment | undefined {

@@ -7,7 +7,7 @@ import type { FileSystemProbe } from "./fileSystem";
 
 export interface BackendProject {
   readonly rootPath: string;
-  readonly managePyPath: string;
+  readonly frameworkEntryPath: string;
   readonly score: number;
   readonly evidence: readonly string[];
 }
@@ -43,7 +43,7 @@ export async function detectBackendProject(
     const evidence = await collectBackendEvidence(fs, entryPointCandidate.rootPath);
     candidates.push({
       rootPath: entryPointCandidate.rootPath,
-      managePyPath: entryPointCandidate.frameworkEntryPath,
+      frameworkEntryPath: entryPointCandidate.frameworkEntryPath,
       evidence: [entryPointCandidate.evidence, ...evidence],
       score: calculateBackendScore(workspaceRootPath, entryPointCandidate.rootPath, evidence.length)
     });

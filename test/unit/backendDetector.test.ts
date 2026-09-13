@@ -26,7 +26,7 @@ void test("detects a Django project at the workspace root", async () => {
   const result = await detectBackendProject(fs, workspaceRoot, configuration());
 
   assert.equal(result.selected?.rootPath, workspaceRoot);
-  assert.equal(result.selected?.managePyPath, path.join(workspaceRoot, "manage.py"));
+  assert.equal(result.selected?.frameworkEntryPath, path.join(workspaceRoot, "manage.py"));
 });
 
 void test("detects a Django project in a ./backend subdirectory", async () => {
@@ -122,6 +122,6 @@ void test("detectBackendProject has no knowledge of 'manage.py' itself - it only
   const result = await detectBackendProjectWithFrameworkDetection(fs, workspaceRoot, configuration(), fakeDetection);
 
   assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "api"));
-  assert.equal(result.selected?.managePyPath, path.join(workspaceRoot, "api", "app.py"));
+  assert.equal(result.selected?.frameworkEntryPath, path.join(workspaceRoot, "api", "app.py"));
   assert.deepEqual(result.selected?.evidence, ["app.py"]);
 });

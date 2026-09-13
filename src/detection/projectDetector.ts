@@ -117,10 +117,10 @@ function buildBackendFrameworkMetadata(
   djangoApps: readonly DjangoApp[]
 ): FrameworkMetadata | undefined {
   if (frameworkId === "django") {
-    return { kind: "django", managePyPath: backend.managePyPath, apps: djangoApps };
+    return { kind: "django", managePyPath: backend.frameworkEntryPath, apps: djangoApps };
   }
   if (frameworkId === "fastapi") {
-    return { kind: "fastapi", appImport: deriveFastApiAppImport(backend.rootPath, backend.managePyPath) };
+    return { kind: "fastapi", appImport: deriveFastApiAppImport(backend.rootPath, backend.frameworkEntryPath) };
   }
   return undefined;
 }

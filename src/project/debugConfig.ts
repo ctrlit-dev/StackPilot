@@ -44,7 +44,7 @@ export function buildLaunchConfigurations(input: LaunchConfigInput): LaunchConfi
       name: DEBUG_CONFIG_NAME_BACKEND,
       type: "debugpy",
       request: "launch",
-      program: toWorkspaceRelative(input.workspaceRootPath, backend.managePyPath),
+      program: toWorkspaceRelative(input.workspaceRootPath, backend.frameworkEntryPath),
       // --noreload: Django's auto-reloader forks a child process debugpy
       // never attaches to, silently defeating breakpoints.
       args: ["runserver", "--noreload", `${input.configuration.backendHost}:${input.configuration.backendPort}`],
