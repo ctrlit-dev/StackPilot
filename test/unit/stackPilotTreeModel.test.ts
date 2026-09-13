@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
+import { COMMAND_INSTALL_PYTHON_DEPENDENCIES, COMMAND_MIGRATE } from "../../src/constants";
 import type { BackendProject } from "../../src/detection/backendDetector";
 import type { DetectedProject, DetectedService } from "../../src/detection/detectedProject";
 import type { FrontendProject } from "../../src/detection/frontendDetector";
 import type { PackageManagerDetection } from "../../src/detection/packageManagerDetector";
 import type { PythonEnvironment } from "../../src/detection/pythonDetector";
+import type { DiagnosticResult } from "../../src/diagnostics/diagnostic";
 import type { ManagedProcessDescriptor } from "../../src/execution/processManager";
 import { buildStackPilotTree, type TreeModelInput, type TreeNode } from "../../src/ui/stackPilotTreeModel";
 
@@ -92,6 +94,7 @@ function baseInput(overrides: Partial<TreeModelInput> = {}): TreeModelInput {
   return {
     backend: stoppedDescriptor("backend"),
     frontend: stoppedDescriptor("frontend"),
+    diagnostics: [],
     ...overrides
   };
 }
@@ -354,4 +357,178 @@ void test("does not offer to create a virtual environment once one is already de
 void test("does not offer to create a virtual environment without a detected backend", () => {
   const tree = buildStackPilotTree(baseInput({ detectedProject: detectedProject() }));
   assert.equal(findNode(tree, "environment.createVenv"), undefined);
+});
+
+// --- Diagnostics ---
+
+const migrationsPendingDiagnostic: DiagnosticResult = {
+  code: "django.migrations.pending",
+  severity: "warning",
+  message: "There are unapplied Django migrations.",
+  serviceId: "backend",
+  action: { label: "Migrate", commandId: COMMAND_MIGRATE }
+};
+
+const interpreterMissingDiagnostic: DiagnosticResult = {
+  code: "python.interpreter.missing",
+  severity: "error",
+  message: "No Python interpreter was found for the detected backend.",
+  serviceId: "backend"
+};
+
+const fastApiDependencyMissingDiagnostic: DiagnosticResult = {
+  code: "fastapi.dependency.missing",
+  severity: "warning",
+  message: "FastAPI is not installed in the detected virtual environment."
+};
+
+const infoDiagnostic: DiagnosticResult = {
+  code: "example.info.notice",
+  severity: "info",
+  message: "An informational notice."
+};
+
+void test("omits the Diagnostics section until detection has run", () => {
+  const tree = buildStackPilotTree(baseInput());
+  assert.equal(findNode(tree, "diagnostics"), undefined);
+});
+
+void test("represents a healthy project as a Diagnostics section with a single 'No issues detected' child, no synthetic DiagnosticResult", () => {
+  const tree = buildStackPilotTree(baseInput({ detectedProject: detectedProject({ backend: backendProject() }), diagnostics: [] }));
+  const diagnosticsNode = findNode(tree, "diagnostics");
+  assert.equal(diagnosticsNode?.description, undefined);
+  assert.deepEqual(diagnosticsNode?.children?.map((child) => child.id), ["diagnostics.healthy"]);
+  assert.equal(diagnosticsNode?.children?.[0].label, "No issues detected");
+});
+
+void test("renders a single warning diagnostic with its message and Migrate action", () => {
+  const tree = buildStackPilotTree(
+    baseInput({ detectedProject: detectedProject({ backend: backendProject() }), diagnostics: [migrationsPendingDiagnostic] })
+  );
+  const diagnosticsNode = findNode(tree, "diagnostics");
+  assert.equal(diagnosticsNode?.description, "1 issue");
+  assert.equal(diagnosticsNode?.children?.length, 1);
+
+  const row = diagnosticsNode?.children?.[0];
+  assert.equal(row?.label, "There are unapplied Django migrations.");
+  assert.equal(row?.description, "Migrate");
+  assert.equal(row?.commandId, COMMAND_MIGRATE);
+});
+
+void test("renders an error diagnostic with its message, and no command when it has no action", () => {
+  const tree = buildStackPilotTree(
+    baseInput({ detectedProject: detectedProject({ backend: backendProject() }), diagnostics: [interpreterMissingDiagnostic] })
+  );
+  const row = findNode(tree, `diagnostics.${interpreterMissingDiagnostic.code}`);
+  assert.equal(row?.label, interpreterMissingDiagnostic.message);
+  assert.equal(row?.commandId, undefined);
+  assert.equal(row?.description, undefined);
+  assert.notEqual(row?.icon?.id, undefined);
+});
+
+void test("renders error, warning, and info diagnostics with three mutually distinct icon shapes", () => {
+  const project = detectedProject({ backend: backendProject() });
+  const errorIcon = findNode(
+    buildStackPilotTree(baseInput({ detectedProject: project, diagnostics: [interpreterMissingDiagnostic] })),
+    `diagnostics.${interpreterMissingDiagnostic.code}`
+  )?.icon?.id;
+  const warningIcon = findNode(
+    buildStackPilotTree(baseInput({ detectedProject: project, diagnostics: [migrationsPendingDiagnostic] })),
+    `diagnostics.${migrationsPendingDiagnostic.code}`
+  )?.icon?.id;
+  const infoIcon = findNode(
+    buildStackPilotTree(baseInput({ detectedProject: project, diagnostics: [infoDiagnostic] })),
+    `diagnostics.${infoDiagnostic.code}`
+  )?.icon?.id;
+
+  assert.notEqual(errorIcon, undefined);
+  assert.notEqual(warningIcon, undefined);
+  assert.notEqual(infoIcon, undefined);
+  assert.notEqual(errorIcon, warningIcon);
+  assert.notEqual(errorIcon, infoIcon);
+  assert.notEqual(warningIcon, infoIcon);
+});
+
+void test("a diagnostic without an action renders no command and no description (never a fabricated FastAPI install button)", () => {
+  const tree = buildStackPilotTree(
+    baseInput({ detectedProject: detectedProject({ backend: backendProject() }), diagnostics: [fastApiDependencyMissingDiagnostic] })
+  );
+  const row = findNode(tree, `diagnostics.${fastApiDependencyMissingDiagnostic.code}`);
+  assert.equal(row?.commandId, undefined);
+  assert.equal(row?.description, undefined);
+});
+
+void test("renders multiple diagnostics, preserving DiagnosticsController's own order and showing a plural count", () => {
+  const tree = buildStackPilotTree(
+    baseInput({
+      detectedProject: detectedProject({ backend: backendProject() }),
+      diagnostics: [interpreterMissingDiagnostic, migrationsPendingDiagnostic, infoDiagnostic]
+    })
+  );
+  const diagnosticsNode = findNode(tree, "diagnostics");
+  assert.equal(diagnosticsNode?.description, "3 issues");
+  assert.deepEqual(
+    diagnosticsNode?.children?.map((child) => child.id),
+    [
+      `diagnostics.${interpreterMissingDiagnostic.code}`,
+      `diagnostics.${migrationsPendingDiagnostic.code}`,
+      `diagnostics.${infoDiagnostic.code}`
+    ]
+  );
+});
+
+void test("a diagnostic's action commandId is used verbatim, never re-derived from its code/severity/serviceId", () => {
+  const customAction: DiagnosticResult = {
+    code: "django.dependency.missing",
+    severity: "warning",
+    message: "Django is not installed in the detected virtual environment.",
+    serviceId: "backend",
+    action: { label: "Install Python Dependencies", commandId: COMMAND_INSTALL_PYTHON_DEPENDENCIES }
+  };
+  const tree = buildStackPilotTree(
+    baseInput({ detectedProject: detectedProject({ backend: backendProject() }), diagnostics: [customAction] })
+  );
+  const row = findNode(tree, `diagnostics.${customAction.code}`);
+  assert.equal(row?.commandId, COMMAND_INSTALL_PYTHON_DEPENDENCIES);
+  assert.equal(row?.description, "Install Python Dependencies");
+});
+
+// --- Package manager overlap (DIAGNOSTICS-1A/1D) ---
+
+void test("an ambiguous package manager still shows exactly once in the Diagnostics section, alongside the pre-existing Frontend row state", () => {
+  const packageManagerBlockedDiagnostic: DiagnosticResult = {
+    code: "node.packageManager.blocked",
+    severity: "warning",
+    message: "Multiple package-manager lockfiles were found (npm, pnpm). Set stackPilot.frontend.packageManager to choose one."
+  };
+  const ambiguous: PackageManagerDetection = {
+    kind: "ambiguous",
+    candidates: [
+      { manager: "npm", lockfile: "package-lock.json" },
+      { manager: "pnpm", lockfile: "pnpm-lock.yaml" }
+    ]
+  };
+  const tree = buildStackPilotTree(
+    baseInput({
+      detectedProject: detectedProject({ frontend: frontendProject(ambiguous) }),
+      diagnostics: [packageManagerBlockedDiagnostic]
+    })
+  );
+
+  // The Diagnostics section carries the one, full, actionable explanation.
+  const diagnosticRows = findNode(tree, "diagnostics")?.children ?? [];
+  assert.equal(diagnosticRows.filter((row) => row.id === "diagnostics.node.packageManager.blocked").length, 1);
+  assert.equal(diagnosticRows[0].label, packageManagerBlockedDiagnostic.message);
+
+  // The pre-existing Frontend row keeps its own short, distinct operability
+  // state (why it cannot be started right now) - not removed, and not the
+  // same text as the diagnostic's message, so nothing is shown twice verbatim.
+  const frontendNode = findNode(tree, "frontend");
+  assert.equal(frontendNode?.description, "Ambiguous package manager");
+  assert.equal(frontendNode?.contextValue, "frontendServer.blocked");
+  assert.notEqual(frontendNode?.description, packageManagerBlockedDiagnostic.message);
+
+  // The Environment section's own Package Manager inventory row is likewise untouched.
+  const environmentPackageManagerNode = findNode(tree, "environment.packageManager");
+  assert.equal(environmentPackageManagerNode?.description, "Ambiguous (npm, pnpm)");
 });

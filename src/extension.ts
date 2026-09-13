@@ -105,9 +105,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const migrationStatusController = new MigrationStatusController(spawner, projectState, djangoBackendAdapter);
 
-  // Consumed by DashboardPanelController's Project Health section below.
-  // Refreshes only on events that can actually change a 1B/1C result;
-  // deliberately not subscribed to processManager.onDidChangeState.
+  // Consumed by DashboardPanelController's Project Health section and by
+  // StackPilotTreeProvider's Diagnostics section below. Refreshes only on
+  // events that can actually change a result; deliberately not subscribed
+  // to processManager.onDidChangeState.
   const diagnosticsController = new DiagnosticsController(
     [pythonEnvironmentCheck, frameworkDependencyCheck, nodeDependenciesCheck, createDjangoMigrationsCheck(migrationStatusController)],
     projectState,
@@ -116,7 +117,7 @@ export function activate(context: vscode.ExtensionContext): void {
     (message) => outputChannel.appendLine(`[Diagnostics] ${message}`)
   );
 
-  const treeProvider = new StackPilotTreeProvider(projectState, processManager);
+  const treeProvider = new StackPilotTreeProvider(projectState, processManager, diagnosticsController);
   const treeView = vscode.window.createTreeView(VIEW_ID, { treeDataProvider: treeProvider });
   const statusBar = new ServerStatusBarController(projectState, processManager);
   const dashboardController = new DashboardPanelController(
