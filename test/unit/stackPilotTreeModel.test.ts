@@ -3,10 +3,10 @@ import test from "node:test";
 
 import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
 import type { BackendProject } from "../../src/detection/backendDetector";
+import type { DetectedProject, DetectedService } from "../../src/detection/detectedProject";
 import type { FrontendProject } from "../../src/detection/frontendDetector";
 import type { PackageManagerDetection } from "../../src/detection/packageManagerDetector";
 import type { PythonEnvironment } from "../../src/detection/pythonDetector";
-import type { DetectedProject } from "../../src/detection/projectDetector";
 import type { ManagedProcessDescriptor } from "../../src/execution/processManager";
 import { buildStackPilotTree, type TreeModelInput, type TreeNode } from "../../src/ui/stackPilotTreeModel";
 
@@ -33,12 +33,42 @@ function detectedProject(overrides: {
   python?: PythonEnvironment;
   djangoApps?: readonly { name: string; path: string }[];
 } = {}): DetectedProject {
+  const pythonDetection = {
+    selected: overrides.python,
+    candidates: overrides.python === undefined ? [] : [overrides.python],
+    diagnostics: []
+  };
+  const services: DetectedService[] = [];
+  if (overrides.backend !== undefined) {
+    services.push({
+      id: "backend",
+      rootPath: overrides.backend.rootPath,
+      frameworkId: "django",
+      runtime: { kind: "python", detection: pythonDetection },
+      frameworkMetadata: { kind: "django", managePyPath: overrides.backend.managePyPath, apps: overrides.djangoApps ?? [] },
+      score: overrides.backend.score,
+      evidence: overrides.backend.evidence
+    });
+  }
+  if (overrides.frontend !== undefined) {
+    services.push({
+      id: "frontend",
+      rootPath: overrides.frontend.rootPath,
+      frameworkId: "vite",
+      runtime: {
+        kind: "node",
+        packageManager: overrides.frontend.packageManager,
+        packageJsonPath: overrides.frontend.packageJsonPath,
+        scripts: overrides.frontend.scripts
+      },
+      score: overrides.frontend.score,
+      evidence: overrides.frontend.evidence
+    });
+  }
   return {
     workspaceRootPath: "/workspace",
-    backend: { selected: overrides.backend, candidates: [], diagnostics: [] },
-    frontend: { selected: overrides.frontend, candidates: [], diagnostics: [] },
-    python: { selected: overrides.python, candidates: [], diagnostics: [] },
-    djangoApps: overrides.djangoApps,
+    services,
+    pythonRuntime: pythonDetection,
     diagnostics: []
   };
 }

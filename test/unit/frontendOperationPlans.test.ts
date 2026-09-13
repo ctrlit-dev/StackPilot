@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { DetectedProject } from "../../src/detection/projectDetector";
+import type { DetectedProject, DetectedService } from "../../src/detection/detectedProject";
 import type { FrontendProject } from "../../src/detection/frontendDetector";
 import type { PackageManagerDetection } from "../../src/detection/packageManagerDetector";
 import {
@@ -12,11 +12,26 @@ import {
 } from "../../src/commands/frontendOperationPlans";
 
 function detectedProject(frontend?: FrontendProject): DetectedProject {
+  const services: DetectedService[] = [];
+  if (frontend !== undefined) {
+    services.push({
+      id: "frontend",
+      rootPath: frontend.rootPath,
+      frameworkId: "vite",
+      runtime: {
+        kind: "node",
+        packageManager: frontend.packageManager,
+        packageJsonPath: frontend.packageJsonPath,
+        scripts: frontend.scripts
+      },
+      score: frontend.score,
+      evidence: frontend.evidence
+    });
+  }
   return {
     workspaceRootPath: "/workspace",
-    backend: { candidates: [], diagnostics: [] },
-    frontend: { selected: frontend, candidates: [], diagnostics: [] },
-    python: { candidates: [], diagnostics: [] },
+    services,
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
     diagnostics: []
   };
 }

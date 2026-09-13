@@ -1,6 +1,13 @@
 import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
-import type { DetectedProject } from "../detection/projectDetector";
 import type { StackPilotConfiguration } from "../config/configurationModel";
+import {
+  getBackendService,
+  getDjangoBackendProject,
+  getFrontendService,
+  getNodeRuntime,
+  getPythonEnvironment,
+  type DetectedProject
+} from "../detection/detectedProject";
 import { buildFrontendDevCommand } from "../execution/frontendCommand";
 import type { StartProcessOptions } from "../execution/processManager";
 
@@ -23,12 +30,12 @@ export function planBackendStart(
   configuration: StackPilotConfiguration,
   backendAdapter: BackendFrameworkAdapter
 ): BackendStartPlan {
-  const backend = detectedProject?.backend.selected;
+  const backend = getDjangoBackendProject(getBackendService(detectedProject));
   if (backend === undefined) {
     return { kind: "no-backend" };
   }
 
-  const python = detectedProject?.python.selected;
+  const python = getPythonEnvironment(getBackendService(detectedProject));
   if (python === undefined) {
     return { kind: "no-python" };
   }
@@ -45,18 +52,18 @@ export type FrontendStartPlan =
   | { readonly kind: "package-manager-missing"; readonly reason: string }
   | { readonly kind: "package-manager-ambiguous"; readonly candidates: readonly string[] };
 
-export function planFrontendStart(
-  detectedProject: DetectedProject | undefined,
-  configuration: StackPilotConfiguration
-): FrontendStartPlan {
-  const frontend = detectedProject?.frontend.selected;
-  if (frontend === undefined) {
+export function planFrontendStart(detectedProject: DetectedProject | undefined, configuration: StackPilotConfiguration): FrontendStartPlan {
+  const frontendService = getFrontendService(detectedProject);
+  if (frontendService === undefined) {
     return { kind: "no-frontend" };
   }
 
-  const packageManager = frontend.packageManager;
-  if (packageManager.kind === "missing") {
-    return { kind: "package-manager-missing", reason: packageManager.reason };
+  const packageManager = getNodeRuntime(frontendService)?.packageManager;
+  if (packageManager === undefined || packageManager.kind === "missing") {
+    return {
+      kind: "package-manager-missing",
+      reason: packageManager?.kind === "missing" ? packageManager.reason : "No supported package-manager lockfile was found."
+    };
   }
   if (packageManager.kind === "ambiguous") {
     return { kind: "package-manager-ambiguous", candidates: packageManager.candidates.map((candidate) => candidate.manager) };
@@ -64,6 +71,6 @@ export function planFrontendStart(
 
   return {
     kind: "ready",
-    command: buildFrontendDevCommand(frontend, packageManager.manager, configuration.frontendDevScript, configuration.frontendPort)
+    command: buildFrontendDevCommand(frontendService.rootPath, packageManager.manager, configuration.frontendDevScript, configuration.frontendPort)
   };
 }

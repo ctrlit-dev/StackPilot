@@ -5,6 +5,7 @@ import {
   COMMAND_RUN_FRONTEND_SCRIPT,
   COMMAND_RUN_FRONTEND_TESTS
 } from "../constants";
+import { getFrontendService, getNodeRuntime } from "../detection/detectedProject";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
 import {
@@ -97,19 +98,19 @@ export async function runFrontendTests(context: CommandContext): Promise<void> {
 }
 
 export async function runFrontendScript(context: CommandContext): Promise<void> {
-  const frontend = context.projectState.getState().detectedProject?.frontend.selected;
-  if (frontend === undefined) {
+  const scripts = getNodeRuntime(getFrontendService(context.projectState.getState().detectedProject))?.scripts;
+  if (scripts === undefined) {
     showActionableError(context.outputChannel, "Run Script could not run because no Vite frontend was detected.");
     return;
   }
-  const scriptNames = Object.keys(frontend.scripts);
+  const scriptNames = Object.keys(scripts);
   if (scriptNames.length === 0) {
     showActionableError(context.outputChannel, "Run Script could not run because package.json has no scripts.");
     return;
   }
 
   const picked = await vscode.window.showQuickPick(
-    scriptNames.map((name) => ({ label: name, description: frontend.scripts[name] })),
+    scriptNames.map((name) => ({ label: name, description: scripts[name] })),
     { title: "Run package.json Script" }
   );
   if (picked === undefined) {

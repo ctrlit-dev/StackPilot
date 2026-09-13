@@ -1,4 +1,3 @@
-import type { FrontendProject } from "../detection/frontendDetector";
 import type { PackageManager } from "../detection/packageManagerDetector";
 import { resolveRunCommand } from "./frontendCommand";
 import type { OneShotCommandOptions } from "./oneShotCommand";
@@ -10,26 +9,18 @@ import type { OneShotCommandOptions } from "./oneShotCommand";
  * package-manager subcommand, not a package.json script, so this does not go
  * through resolveRunCommand (which would wrongly produce `npm run install`).
  */
-export function buildFrontendInstallCommand(frontend: FrontendProject, packageManager: PackageManager): OneShotCommandOptions {
-  return { executable: packageManager, args: ["install"], cwd: frontend.rootPath };
+export function buildFrontendInstallCommand(rootPath: string, packageManager: PackageManager): OneShotCommandOptions {
+  return { executable: packageManager, args: ["install"], cwd: rootPath };
 }
 
-export function buildFrontendBuildCommand(
-  frontend: FrontendProject,
-  packageManager: PackageManager,
-  buildScript: string
-): OneShotCommandOptions {
+export function buildFrontendBuildCommand(rootPath: string, packageManager: PackageManager, buildScript: string): OneShotCommandOptions {
   const { executable, args } = resolveRunCommand(packageManager, buildScript);
-  return { executable, args, cwd: frontend.rootPath };
+  return { executable, args, cwd: rootPath };
 }
 
-export function buildFrontendTestCommand(
-  frontend: FrontendProject,
-  packageManager: PackageManager,
-  testScript: string
-): OneShotCommandOptions {
+export function buildFrontendTestCommand(rootPath: string, packageManager: PackageManager, testScript: string): OneShotCommandOptions {
   const { executable, args } = resolveRunCommand(packageManager, testScript);
-  return { executable, args, cwd: frontend.rootPath };
+  return { executable, args, cwd: rootPath };
 }
 
 /**
@@ -37,11 +28,7 @@ export function buildFrontendTestCommand(
  * entry - identical shape to build/test above, but for a script name chosen
  * at runtime rather than one of the two configured ones.
  */
-export function buildFrontendScriptCommand(
-  frontend: FrontendProject,
-  packageManager: PackageManager,
-  scriptName: string
-): OneShotCommandOptions {
+export function buildFrontendScriptCommand(rootPath: string, packageManager: PackageManager, scriptName: string): OneShotCommandOptions {
   const { executable, args } = resolveRunCommand(packageManager, scriptName);
-  return { executable, args, cwd: frontend.rootPath };
+  return { executable, args, cwd: rootPath };
 }

@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { DetectedProject } from "../../src/detection/projectDetector";
+import type { DetectedProject } from "../../src/detection/detectedProject";
 import type { PythonEnvironment } from "../../src/detection/pythonDetector";
 import { buildCreateVenvCommand, findBasePython } from "../../src/execution/venvCommand";
 
 function project(candidates: readonly PythonEnvironment[]): DetectedProject {
   return {
     workspaceRootPath: "/workspace",
-    backend: { candidates: [], diagnostics: [] },
-    frontend: { candidates: [], diagnostics: [] },
-    python: { candidates, diagnostics: [] },
+    services: [],
+    pythonRuntime: { selected: undefined, candidates, diagnostics: [] },
     diagnostics: []
   };
 }

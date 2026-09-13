@@ -10,7 +10,7 @@ import {
   CONTEXT_WORKSPACE_AMBIGUOUS,
   CONTEXT_WORKSPACE_TRUSTED
 } from "../constants";
-import type { DetectedProject } from "../detection/projectDetector";
+import { getBackendService, getFrontendService, type DetectedProject } from "../detection/detectedProject";
 import type { ManagedProcessDescriptor } from "../execution/processManager";
 import type { WorkspaceSelectionResult } from "./workspaceSelectionModel";
 
@@ -24,9 +24,9 @@ export async function updateWorkspaceContextKeys(
     vscode.commands.executeCommand("setContext", CONTEXT_HAS_SELECTED_WORKSPACE, selection.kind === "selected"),
     vscode.commands.executeCommand("setContext", CONTEXT_WORKSPACE_AMBIGUOUS, selection.kind === "ambiguous"),
     vscode.commands.executeCommand("setContext", CONTEXT_WORKSPACE_TRUSTED, workspaceTrusted),
-    vscode.commands.executeCommand("setContext", CONTEXT_HAS_BACKEND, detectedProject?.backend.selected !== undefined),
-    vscode.commands.executeCommand("setContext", CONTEXT_HAS_FRONTEND, detectedProject?.frontend.selected !== undefined),
-    vscode.commands.executeCommand("setContext", CONTEXT_HAS_PYTHON, detectedProject?.python.selected !== undefined)
+    vscode.commands.executeCommand("setContext", CONTEXT_HAS_BACKEND, getBackendService(detectedProject) !== undefined),
+    vscode.commands.executeCommand("setContext", CONTEXT_HAS_FRONTEND, getFrontendService(detectedProject) !== undefined),
+    vscode.commands.executeCommand("setContext", CONTEXT_HAS_PYTHON, detectedProject?.pythonRuntime.selected !== undefined)
   ]);
 }
 

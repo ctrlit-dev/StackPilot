@@ -1,6 +1,13 @@
 import type { StackPilotConfiguration } from "../config/configurationModel";
 import type { DjangoApp } from "../detection/djangoAppDetector";
-import type { DetectedProject } from "../detection/projectDetector";
+import {
+  getBackendService,
+  getDjangoMetadata,
+  getFrontendService,
+  getNodeRuntime,
+  type DetectedProject
+} from "../detection/detectedProject";
+import type { PackageManagerDetection } from "../detection/packageManagerDetector";
 import type { ManagedProcessDescriptor } from "../execution/processManager";
 import { describeServerState, ICON_BLOCKED, ICON_NOT_DETECTED, serverStateIcon, type StatusIcon } from "./serverStatus";
 import {
@@ -63,7 +70,7 @@ export function buildStackPilotTree(input: TreeModelInput): TreeNode[] {
 }
 
 function buildBackendSection(input: TreeModelInput): TreeNode {
-  const backend = input.detectedProject?.backend.selected;
+  const backend = getBackendService(input.detectedProject);
 
   if (backend === undefined) {
     return {
@@ -90,7 +97,7 @@ function buildBackendSection(input: TreeModelInput): TreeNode {
       { id: "backend.dbShell", label: "Database Shell", commandId: COMMAND_OPEN_DB_SHELL, icon: { id: "database" } },
       { id: "backend.superuser", label: "Superuser", commandId: COMMAND_CREATE_SUPERUSER, icon: { id: "person-add" } },
       { id: "backend.createApp", label: "Create App", commandId: COMMAND_CREATE_DJANGO_APP, icon: { id: "new-folder" } },
-      ...buildDjangoAppsSection(input.detectedProject?.djangoApps ?? []),
+      ...buildDjangoAppsSection(getDjangoMetadata(backend)?.apps ?? []),
       { id: "backend.test", label: "Tests", commandId: COMMAND_RUN_DJANGO_TESTS, icon: { id: "beaker" } },
       {
         id: "backend.installDependencies",
@@ -142,7 +149,7 @@ function buildDjangoAppsSection(apps: readonly DjangoApp[]): TreeNode[] {
 }
 
 function buildFrontendSection(input: TreeModelInput): TreeNode {
-  const frontend = input.detectedProject?.frontend.selected;
+  const frontend = getFrontendService(input.detectedProject);
 
   if (frontend === undefined) {
     return {
@@ -154,34 +161,35 @@ function buildFrontendSection(input: TreeModelInput): TreeNode {
     };
   }
 
-  const packageManager = frontend.packageManager;
-  const blocked = input.frontend.state === "stopped" && packageManager.kind !== "detected";
+  const runtime = getNodeRuntime(frontend);
+  const packageManager = runtime?.packageManager;
+  const blocked = input.frontend.state === "stopped" && packageManager?.kind !== "detected";
 
   const description = blocked
-    ? packageManager.kind === "missing"
+    ? packageManager?.kind === "missing"
       ? "Package manager not found"
       : "Ambiguous package manager"
     : describeServerState(input.frontend);
   const tooltip = blocked
-    ? packageManager.kind === "missing"
+    ? packageManager?.kind === "missing"
       ? packageManager.reason
-      : `Multiple lockfiles found: ${packageManager.candidates.map((candidate) => candidate.manager).join(", ")}`
+      : `Multiple lockfiles found: ${packageManager?.kind === "ambiguous" ? packageManager.candidates.map((candidate) => candidate.manager).join(", ") : ""}`
     : input.frontend.lastError;
   const contextValue = blocked ? "frontendServer.blocked" : `frontendServer.${input.frontend.state}`;
   const icon = blocked ? ICON_BLOCKED : serverStateIcon(input.frontend.state);
 
   const children: TreeNode[] = [];
-  if (packageManager.kind === "detected") {
+  if (packageManager?.kind === "detected" && runtime !== undefined) {
     children.push({
       id: "frontend.installDependencies",
       label: "Install Dependencies",
       commandId: COMMAND_INSTALL_FRONTEND_DEPENDENCIES,
       icon: { id: "package" }
     });
-    if (input.configuration !== undefined && Object.hasOwn(frontend.scripts, input.configuration.frontendBuildScript)) {
+    if (input.configuration !== undefined && Object.hasOwn(runtime.scripts, input.configuration.frontendBuildScript)) {
       children.push({ id: "frontend.build", label: "Build", commandId: COMMAND_BUILD_FRONTEND, icon: { id: "tools" } });
     }
-    if (input.configuration !== undefined && Object.hasOwn(frontend.scripts, input.configuration.frontendTestScript)) {
+    if (input.configuration !== undefined && Object.hasOwn(runtime.scripts, input.configuration.frontendTestScript)) {
       children.push({ id: "frontend.test", label: "Tests", commandId: COMMAND_RUN_FRONTEND_TESTS, icon: { id: "beaker" } });
     }
     children.push({
@@ -210,8 +218,9 @@ function buildEnvironmentSection(input: TreeModelInput): TreeNode[] {
     return [];
   }
 
-  const python = input.detectedProject.python.selected;
-  const frontend = input.detectedProject.frontend.selected;
+  const python = input.detectedProject.pythonRuntime.selected;
+  const frontend = getFrontendService(input.detectedProject);
+  const frontendPackageManager = getNodeRuntime(frontend)?.packageManager;
 
   const children: TreeNode[] = [
     {
@@ -223,7 +232,7 @@ function buildEnvironmentSection(input: TreeModelInput): TreeNode[] {
     }
   ];
 
-  if (input.detectedProject.backend.selected !== undefined && python?.source !== "venv") {
+  if (getBackendService(input.detectedProject) !== undefined && python?.source !== "venv") {
     children.push({
       id: "environment.createVenv",
       label: "Create Virtual Environment",
@@ -232,12 +241,12 @@ function buildEnvironmentSection(input: TreeModelInput): TreeNode[] {
     });
   }
 
-  if (frontend !== undefined) {
+  if (frontend !== undefined && frontendPackageManager !== undefined) {
     children.push({
       id: "environment.packageManager",
       label: "Package Manager",
-      description: describePackageManager(frontend.packageManager),
-      icon: frontend.packageManager.kind === "detected" ? { id: "package" } : ICON_BLOCKED
+      description: describePackageManager(frontendPackageManager),
+      icon: frontendPackageManager.kind === "detected" ? { id: "package" } : ICON_BLOCKED
     });
   }
 
@@ -255,9 +264,7 @@ function describePython(version: string | undefined, executablePath: string): st
   return version === undefined ? executablePath : `${version} · ${executablePath}`;
 }
 
-function describePackageManager(
-  packageManager: NonNullable<DetectedProject["frontend"]["selected"]>["packageManager"]
-): string {
+function describePackageManager(packageManager: PackageManagerDetection): string {
   switch (packageManager.kind) {
     case "detected":
       return packageManager.manager;

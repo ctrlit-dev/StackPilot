@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import type { StackPilotConfiguration } from "../config/configurationModel";
+import { getBackendService, getFrontendService, type DetectedProject } from "../detection/detectedProject";
 import type { FileSystemProbe } from "../detection/fileSystem";
-import type { DetectedProject } from "../detection/projectDetector";
 import { isDjangoInstalled } from "../detection/pythonPackageCheck";
 import { resolveWorkspacePath } from "../utils/paths";
 
@@ -29,9 +29,9 @@ export async function gatherInitializationFacts(
   detectedProject: DetectedProject | undefined,
   configuration: StackPilotConfiguration
 ): Promise<InitializationFacts> {
-  const backend = detectedProject?.backend.selected;
-  const frontend = detectedProject?.frontend.selected;
-  const python = detectedProject?.python.selected;
+  const backend = getBackendService(detectedProject);
+  const frontend = getFrontendService(detectedProject);
+  const python = detectedProject?.pythonRuntime.selected;
 
   const requirementsFileDetected = backend !== undefined && REQUIREMENTS_EVIDENCE.some((file) => backend.evidence.includes(file));
   const venvDetected = python?.source === "venv";

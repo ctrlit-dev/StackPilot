@@ -9,6 +9,7 @@ security boundaries.
 ```text
 src/
 ├── extension.ts       composition/bootstrap only - wires everything below
+├── serviceId.ts          the ServiceId vocabulary, shared by detection/ and execution/
 ├── adapters/            framework-specific knowledge (e.g. Django's start command)
 ├── detection/          read-only: find Django/Vite/Python/package manager
 ├── execution/           run things: process spawning, lifecycle, terminals
@@ -146,14 +147,79 @@ Django/Vite-specific field names - the detection capabilities' own result
 types use framework-neutral names (`frameworkEntryPath`), and
 `detection/backendDetector.ts`/`detection/frontendDetector.ts` map that
 result into the legacy field when building the final `BackendProject`/
-`FrontendProject`. Generalizing the project model itself is separate,
-later work.
+`FrontendProject`. The project model built from their results is generalized
+separately - see "Project model" below.
 
 There is intentionally no detection registry or scoring engine here either -
 exactly two real frameworks exist, wired directly at the composition root
 (`extension.ts` passes `djangoBackendDetection`/`viteFrontendDetection` into
 `detection/projectDetector.ts`'s `detectProject()`), and detection stays
 fully deterministic.
+
+## Project model
+
+`DetectedProject` is service-oriented rather than framework-field-oriented:
+`{ workspaceRootPath, services: readonly DetectedService[], pythonRuntime,
+diagnostics }` (`detection/detectedProject.ts`), not the old
+`{ backend, frontend, python, djangoApps }`. Four separate concepts, each
+with a narrow, real reason to exist:
+
+- **Project** - `DetectedProject` itself, the whole-workspace result.
+- **Service** - `DetectedService` (`id`, `rootPath`, `score`, `evidence`), a
+  detected development component. `id` is a `ServiceId` ("backend",
+  "frontend", later perhaps "worker") - the same `ServiceId`
+  `ProcessManager` and `ServiceRegistry` use, not a different vocabulary
+  reinvented here (both now import it from the shared `src/serviceId.ts`,
+  since `detection/` must not import from `execution/`).
+- **Runtime** - `DetectedService.runtime` (`RuntimeReference`: a
+  `PythonRuntimeReference` carrying the full `PythonDetectionResult`, or a
+  `NodeRuntimeReference` carrying the package manager, `package.json` path,
+  and scripts). What executes the service.
+- **Framework** - `DetectedService.frameworkId` (a `FrameworkAdapterId`,
+  e.g. `"django"`/`"vite"`) plus, only where a framework actually has
+  structured facts worth carrying, `DetectedService.frameworkMetadata`
+  (currently just `DjangoServiceMetadata`: `managePyPath` + `apps`). No
+  `ViteServiceMetadata` exists - nothing outside `frontendDetector.ts`'s own
+  scoring ever consumed `viteConfigPath` after detection, so it was not
+  carried into the generalized model at all (code truth decided this, not a
+  symmetry assumption).
+
+**`ServiceId` and `FrameworkAdapterId` stay separate here too**: a service's
+id is never compared against or derived from its `frameworkId`. **A
+framework can back more than one service**, and **a project can eventually
+hold multiple services on the same runtime kind** (two Python services, say)
+without any structural change - nothing about `DetectedProject` assumes
+exactly one Python or one Node service exists.
+
+`FrameworkMetadata` is a union discriminated by its own `kind` field, not by
+`frameworkId` - `FrameworkAdapterId` is an open `string` (any adapter can
+register with any id), so it can never give TypeScript a closed, checkable
+discriminant the way a small, explicit union's own tag can. Reading
+Django-specific facts safely goes through `getDjangoMetadata(service)`
+(narrows on `frameworkMetadata.kind === "django"`), never a cast on
+`frameworkMetadata` directly; `getDjangoBackendProject(service)`
+additionally reconstructs the legacy `BackendProject` shape
+`BackendFrameworkAdapter`/`djangoBackendAdapter` methods still take, so
+Django command/plan code has one type-safe entry point instead of building
+that shape inline at every call site. Adding a framework whose services
+carry their own structured facts (FastAPI's app-module path, say) means
+adding one more variant to `FrameworkMetadata` and one more `getXMetadata()`
+helper - not redesigning `DetectedService` or `DetectedProject`.
+
+`DetectedProject.pythonRuntime` is a deliberate, documented exception to
+"only on the service that needs it": existing UI (the tree's Environment
+section) shows Python status independent of whether a backend service was
+detected at all, and venv (re)creation (`findBasePython`) has never required
+one either. It is not a second source of truth for the same fact - when a
+backend service exists, its `runtime` points at this exact same
+`PythonDetectionResult` object, not a copy.
+
+`BackendProject`/`FrontendProject` (`detection/backendDetector.ts`/
+`detection/frontendDetector.ts`) still exist, but only as those detectors'
+own internal candidate/result shapes - `detection/projectDetector.ts` is the
+one place that shapes their output into `DetectedService`s; nothing else in
+the codebase depends on `BackendProject`/`FrontendProject` as the project's
+public shape anymore.
 
 ## Detection (read-only)
 

@@ -13,6 +13,7 @@ import {
   COMMAND_RUN_MANAGEMENT_COMMAND,
   COMMAND_SHOW_MIGRATIONS
 } from "../constants";
+import { getBackendService } from "../detection/detectedProject";
 import { showActionableError } from "../ui/notifications";
 import { splitCommandArguments } from "../utils/commandLine";
 import {
@@ -172,10 +173,10 @@ export async function createDjangoApp(context: CommandContext): Promise<void> {
     return;
   }
 
-  const backend = state.detectedProject?.backend.selected;
-  if (backend !== undefined) {
-    await vscode.commands.executeCommand("revealInExplorer", vscode.Uri.file(path.join(backend.rootPath, appName)));
-    await offerToRegisterInstalledApp(context, backend.rootPath, appName);
+  const backendRootPath = getBackendService(state.detectedProject)?.rootPath;
+  if (backendRootPath !== undefined) {
+    await vscode.commands.executeCommand("revealInExplorer", vscode.Uri.file(path.join(backendRootPath, appName)));
+    await offerToRegisterInstalledApp(context, backendRootPath, appName);
   }
   await vscode.commands.executeCommand(COMMAND_REFRESH);
 }

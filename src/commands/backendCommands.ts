@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { COMMAND_OPEN_SETTINGS, COMMAND_START_BACKEND, COMMAND_STOP_BACKEND } from "../constants";
+import { getBackendService, getDjangoBackendProject, getPythonEnvironment } from "../detection/detectedProject";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
 import { offerToOpenInBrowser } from "./openInBrowserOffer";
@@ -47,8 +48,9 @@ export async function startBackend(context: CommandContext): Promise<void> {
       return;
     }
 
-    const backend = state.detectedProject?.backend.selected;
-    const python = state.detectedProject?.python.selected;
+    const backendService = getBackendService(state.detectedProject);
+    const backend = getDjangoBackendProject(backendService);
+    const python = getPythonEnvironment(backendService);
     if (backend === undefined || python === undefined) {
       return;
     }
