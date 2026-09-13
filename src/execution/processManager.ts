@@ -1,6 +1,8 @@
 import type { ProcessExitInfo, ProcessSpawner, SpawnedProcess } from "./processSpawner";
+import { DEFAULT_SERVICE_REGISTRY, type ServiceId, type ServiceRegistry } from "./serviceRegistry";
 
-export type ManagedProcessKind = "backend" | "frontend";
+/** Historical name for a service id in process-lifecycle contexts; kept as the public name here since every existing caller already imports it from this module. */
+export type ManagedProcessKind = ServiceId;
 export type ManagedProcessState = "stopped" | "starting" | "running" | "stopping" | "failed" | "unknown";
 
 export interface ManagedProcessDescriptor {
@@ -40,13 +42,18 @@ export interface Disposable {
   dispose(): void;
 }
 
-const KINDS: readonly ManagedProcessKind[] = ["backend", "frontend"];
-
 /**
- * Centralizes lifecycle state for the backend and frontend dev servers
- * (spec §12: "Centralize lifecycle management. Do not scatter process state
- * through UI code."). Pure engine with no VS Code dependency - the process
- * spawner is injected so this class is unit-testable with a fake (spec §56).
+ * Centralizes lifecycle state for the managed development services (spec
+ * §12: "Centralize lifecycle management. Do not scatter process state
+ * through UI code."). Pure engine with no VS Code dependency and no
+ * knowledge of what any given service actually is (Django, Vite, or
+ * anything else) - the process spawner is injected so this class is
+ * unit-testable with a fake (spec §56), and the set of services that
+ * participate in `startAll`/`stopAll` is injected via a `ServiceRegistry`
+ * rather than hard-coded, so a third service (a database, a worker, ...)
+ * does not require touching this class. `start()`/`stop()` themselves are
+ * not restricted to registered ids - they work for any `ServiceId`, since
+ * per-service state is a plain map keyed by whatever id the caller uses.
  *
  * Race-safety notes:
  * - start() checks and transitions state synchronously before its first
@@ -68,10 +75,18 @@ export class ProcessManager {
   private readonly listeners = new Set<ProcessStateListener>();
   private readonly outputListeners = new Set<ProcessOutputListener>();
 
-  public constructor(private readonly spawner: ProcessSpawner) {
-    for (const kind of KINDS) {
+  public constructor(
+    private readonly spawner: ProcessSpawner,
+    private readonly registry: ServiceRegistry = DEFAULT_SERVICE_REGISTRY
+  ) {
+    for (const kind of registry.getServiceIds()) {
       this.descriptors.set(kind, { kind, state: "stopped" });
     }
+  }
+
+  /** The services this manager treats as the universe for `startAll`/`stopAll` - see `ServiceRegistry`. */
+  public getRegisteredServiceIds(): readonly ServiceId[] {
+    return this.registry.getServiceIds();
   }
 
   public getState(kind: ManagedProcessKind): ManagedProcessDescriptor {
@@ -172,7 +187,7 @@ export class ProcessManager {
     optionsByKind: Partial<Record<ManagedProcessKind, StartProcessOptions>>
   ): Promise<Record<ManagedProcessKind, StartProcessResult | { readonly outcome: "skipped" }>> {
     const results: Partial<Record<ManagedProcessKind, StartProcessResult | { readonly outcome: "skipped" }>> = {};
-    for (const kind of KINDS) {
+    for (const kind of this.registry.getServiceIds()) {
       const options = optionsByKind[kind];
       results[kind] = options === undefined ? { outcome: "skipped" } : await this.start(kind, options);
     }
@@ -181,7 +196,7 @@ export class ProcessManager {
 
   public async stopAll(): Promise<Record<ManagedProcessKind, StopProcessResult>> {
     const results: Partial<Record<ManagedProcessKind, StopProcessResult>> = {};
-    for (const kind of KINDS) {
+    for (const kind of this.registry.getServiceIds()) {
       results[kind] = await this.stop(kind);
     }
     return results as Record<ManagedProcessKind, StopProcessResult>;

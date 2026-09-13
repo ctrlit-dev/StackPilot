@@ -58,17 +58,34 @@ rejected after resolution, not just by a lexical string check.
 
 ## Process ownership and execution strategy
 
-`execution/processManager.ts` is the single source of truth for whether the
-managed backend or frontend dev server is running. It never shells out to a
-string command: every spawn goes through `ProcessSpawner`
-(`execution/processSpawner.ts`), whose real implementation
-(`nodeProcessSpawner.ts`) uses `cross-spawn` with `shell: false` throughout.
-`cross-spawn` (rather than `child_process.spawn` directly) exists specifically
-because Windows cannot execute `.cmd`/`.bat` files (npm/pnpm/yarn ship as
-such) without a shell, and Node's own shell-based workaround for that is the
-exact vulnerability class behind CVE-2024-27980/36138 ("BatBadBut").
+`execution/processManager.ts` is the single source of truth for whether a
+managed development service is running. `ProcessManager` itself knows nothing
+about Django, Vite, or any other framework - it only knows a service id
+(`ServiceId`, a plain `string` alias defined in `execution/serviceRegistry.ts`)
+and how to run/track a process for it (`executable`/`args`/`cwd`/lifecycle).
+Today exactly two services exist in practice - `backend` and `frontend` - but
+that is a fact about `DEFAULT_SERVICE_REGISTRY`'s contents, not something
+`ProcessManager` hard-codes: `start()`/`stop()` work for any `ServiceId`, and
+`startAll()`/`stopAll()` iterate whatever `ServiceRegistry` was injected into
+the constructor (defaulting to `DEFAULT_SERVICE_REGISTRY` so existing callers
+are unaffected). Adding a third service (a database, a worker, ...) later is
+a matter of constructing a `ServiceRegistry` with more ids, not a change to
+this class. `ServiceRegistry` is deliberately minimal - just an ordered list
+of ids - because nothing in the current architecture needs per-service
+metadata (labels, auto-start behavior, ...) yet; those decisions still live
+where they always have, in the UI layer and each command's own plan function,
+and should only move into the registry once a real caller needs them there.
 
-`ProcessManager` tracks state per kind (`backend` | `frontend`) as
+`ProcessManager` never shells out to a string command: every spawn goes
+through `ProcessSpawner` (`execution/processSpawner.ts`), whose real
+implementation (`nodeProcessSpawner.ts`) uses `cross-spawn` with
+`shell: false` throughout. `cross-spawn` (rather than `child_process.spawn`
+directly) exists specifically because Windows cannot execute `.cmd`/`.bat`
+files (npm/pnpm/yarn ship as such) without a shell, and Node's own
+shell-based workaround for that is the exact vulnerability class behind
+CVE-2024-27980/36138 ("BatBadBut").
+
+`ProcessManager` tracks state per service id as
 `stopped | starting | running | stopping | failed | unknown` and blocks a
 duplicate start via a synchronous check-and-transition before the first
 `await` in `start()` - JavaScript's run-to-completion semantics mean two
