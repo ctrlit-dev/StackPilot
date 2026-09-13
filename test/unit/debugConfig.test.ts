@@ -176,6 +176,84 @@ void test("adds a full-stack compound only when both backend and frontend config
   assert.deepEqual(plan.compounds[0].configurations, [DEBUG_CONFIG_NAME_BACKEND, DEBUG_CONFIG_NAME_FRONTEND]);
 });
 
+/**
+ * A realistic FastAPI-detected backend service, per the current
+ * `DetectedService` model (same shape `fastApiBackendDetection.ts`/
+ * `projectDetector.ts` actually produce) - `frameworkId: "fastapi"` and
+ * `FastApiServiceMetadata`, no Django metadata at all. Used to prove
+ * `buildLaunchConfigurations` (a Django-only debug-config generator today)
+ * never fabricates a Django `manage.py runserver` configuration out of
+ * FastAPI's own `frameworkEntryPath` ("main.py").
+ */
+function fastApiDetectedProject(python?: PythonEnvironment): DetectedProject {
+  const pythonDetection = { selected: python, candidates: python === undefined ? [] : [python], diagnostics: [] };
+  const services: DetectedService[] = [
+    {
+      id: "backend",
+      rootPath: "/workspace",
+      frameworkId: "fastapi",
+      runtime: { kind: "python", detection: pythonDetection },
+      frameworkMetadata: { kind: "fastapi", appImport: "main:app" },
+      score: 80,
+      evidence: ["main.py"]
+    }
+  ];
+  return { workspaceRootPath: "/workspace", services, pythonRuntime: pythonDetection, diagnostics: [] };
+}
+
+void test("does not create a Django debug configuration for a FastAPI backend", () => {
+  const plan = buildLaunchConfigurations({
+    workspaceRootPath: "/workspace",
+    detectedProject: fastApiDetectedProject({ executablePath: "/workspace/.venv/bin/python", source: "venv", validation: "exists" }),
+    configuration: { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 8000 }
+  });
+
+  // No configuration at all was built for the backend - not a Django one,
+  // not some generic/best-effort one either.
+  assert.deepEqual(plan.configurations, []);
+  assert.deepEqual(plan.compounds, []);
+});
+
+void test("never interprets a FastAPI backend's frameworkEntryPath (main.py) as manage.py, even with a python interpreter and full config present", () => {
+  const plan = buildLaunchConfigurations({
+    workspaceRootPath: "/workspace",
+    detectedProject: fastApiDetectedProject({ executablePath: "/workspace/.venv/bin/python", source: "venv", validation: "exists" }),
+    configuration: { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 8000 }
+  });
+
+  // Every one of these would be true for the Django config this same input
+  // shape produces (see "builds a debugpy launch configuration for the
+  // detected Django backend" above) - none may be true here.
+  assert.ok(!plan.configurations.some((config) => config.name === DEBUG_CONFIG_NAME_BACKEND));
+  assert.ok(!plan.configurations.some((config) => config.type === "debugpy"));
+  assert.ok(!plan.configurations.some((config) => config.django === true));
+  assert.ok(!plan.configurations.some((config) => typeof config.program === "string" && config.program.includes("main.py")));
+  assert.ok(!plan.configurations.some((config) => Array.isArray(config.args) && config.args.includes("runserver")));
+});
+
+void test("does not create a Django debug configuration for a backend whose framework is unrecognized (neither Django nor FastAPI)", () => {
+  const python: PythonEnvironment = { executablePath: "/workspace/.venv/bin/python", source: "venv", validation: "exists" };
+  const pythonDetection = { selected: python, candidates: [python], diagnostics: [] };
+  const project: DetectedProject = {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: "backend",
+        rootPath: "/workspace",
+        frameworkId: "flask",
+        runtime: { kind: "python", detection: pythonDetection },
+        score: 80,
+        evidence: ["requirements.txt"]
+      }
+    ],
+    pythonRuntime: pythonDetection,
+    diagnostics: []
+  };
+
+  const plan = buildLaunchConfigurations({ workspaceRootPath: "/workspace", detectedProject: project, configuration: DEFAULT_CONFIGURATION });
+  assert.deepEqual(plan.configurations, []);
+});
+
 void test("mergeLaunchEntriesByName replaces entries sharing a name and keeps the rest untouched", () => {
   const existing = [
     { name: "My Own Config", type: "node" },
