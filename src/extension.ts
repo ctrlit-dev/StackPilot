@@ -26,6 +26,7 @@ import { NodeProcessSpawner } from "./execution/nodeProcessSpawner";
 import { OperationTerminal } from "./execution/operationTerminal";
 import { NodePortChecker } from "./execution/portAvailability";
 import { ProcessManager } from "./execution/processManager";
+import { createDefaultServiceLifecyclePolicyProvider } from "./execution/serviceLifecyclePolicy";
 import { DEFAULT_SERVICE_REGISTRY } from "./execution/serviceRegistry";
 import { ServerTerminalManager } from "./execution/terminalManager";
 import { NodeProjectFileWriter } from "./project/nodeProjectFileWriter";
@@ -115,8 +116,9 @@ export function activate(context: vscode.ExtensionContext): void {
       return Promise.resolve();
     }
   });
-  const autoRestartController = new AutoRestartController(processManager, projectState, outputChannel);
-  const crashNotificationController = new CrashNotificationController(processManager, projectState, terminalManager);
+  const serviceLifecyclePolicyProvider = createDefaultServiceLifecyclePolicyProvider(projectState);
+  const autoRestartController = new AutoRestartController(processManager, serviceLifecyclePolicyProvider, outputChannel);
+  const crashNotificationController = new CrashNotificationController(processManager, serviceLifecyclePolicyProvider, terminalManager);
   const ratingPromptController = new RatingPromptController(context.globalState, context.extension, processManager);
 
   const djangoTestController = new TestSuiteController(

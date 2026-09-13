@@ -1,20 +1,23 @@
 import * as vscode from "vscode";
-import type { ProjectStateStore } from "../state/projectState";
 import { DEFAULT_CRASH_LOOP_POLICY, nextRestartDelayMs } from "./crashLoopPolicy";
 import type { ManagedProcessDescriptor, ManagedProcessKind, ProcessManager } from "./processManager";
+import type { ServiceLifecyclePolicyProvider } from "./serviceLifecyclePolicy";
 
 /** How long a server must stay running before a later crash counts as a fresh streak rather than a continuation. */
 const STABILITY_WINDOW_MS = 10_000;
 
 /**
  * Watches for a server exiting unexpectedly (ProcessManager's "failed" state,
- * as opposed to "stopped" from a deliberate user stop) and, when the user has
- * opted in via `stackPilot.backend/frontend.autoRestartOnCrash`, restarts
- * it with the exact command it was already running - no re-planning, no port-
- * conflict prompt, since this only ever repeats a start the user (or a prior
- * auto-restart) already approved for that session. Bounded by
- * DEFAULT_CRASH_LOOP_POLICY so a server that cannot start at all does not
- * loop forever.
+ * as opposed to "stopped" from a deliberate user stop) and, when the
+ * injected `ServiceLifecyclePolicyProvider` says auto-restart is enabled for
+ * that service, restarts it with the exact command it was already running -
+ * no re-planning, no port-conflict prompt, since this only ever repeats a
+ * start the user (or a prior auto-restart) already approved for that
+ * session. Bounded by DEFAULT_CRASH_LOOP_POLICY so a server that cannot
+ * start at all does not loop forever. Has no knowledge of which services
+ * exist or how their auto-restart setting is configured - that is entirely
+ * the policy provider's responsibility, so a third service works exactly
+ * like backend/frontend without any change here.
  */
 export class AutoRestartController implements vscode.Disposable {
   private readonly consecutiveFailures = new Map<ManagedProcessKind, number>();
@@ -23,7 +26,7 @@ export class AutoRestartController implements vscode.Disposable {
 
   public constructor(
     private readonly processManager: ProcessManager,
-    private readonly projectState: ProjectStateStore,
+    private readonly policyProvider: ServiceLifecyclePolicyProvider,
     private readonly outputChannel: vscode.OutputChannel
   ) {
     this.disposables.push(processManager.onDidChangeState((descriptor) => this.onStateChanged(descriptor)));
@@ -60,7 +63,7 @@ export class AutoRestartController implements vscode.Disposable {
   }
 
   private handleCrash(descriptor: ManagedProcessDescriptor): void {
-    if (!this.isAutoRestartEnabled(descriptor.kind)) {
+    if (!this.policyProvider.getPolicy(descriptor.kind).autoRestartEnabled) {
       return;
     }
     if (descriptor.executable === undefined || descriptor.args === undefined || descriptor.cwd === undefined) {
@@ -86,14 +89,6 @@ export class AutoRestartController implements vscode.Disposable {
     setTimeout(() => {
       void this.processManager.start(kind, { executable, args, cwd, expectedPort });
     }, delay);
-  }
-
-  private isAutoRestartEnabled(kind: ManagedProcessKind): boolean {
-    const configuration = this.projectState.getState().configuration;
-    if (configuration === undefined) {
-      return false;
-    }
-    return kind === "backend" ? configuration.backendAutoRestart : configuration.frontendAutoRestart;
   }
 
   private armStabilityTimer(kind: ManagedProcessKind): void {
