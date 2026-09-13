@@ -1,0 +1,16 @@
+CODEX_VSCODE_DJANGO_VITE_PROJECT_CONTROL_MASTER_PROMPT.md
+.gitignore
+.vscode/**
+.vscode-test/**
+src/**
+test/**
+out/**
+docs/**
+node_modules/**
+dist/**/*.map
+esbuild.js
+eslint.config.mjs
+tsconfig.json
+package-lock.json
+*.vsix
+**/.gitkeep

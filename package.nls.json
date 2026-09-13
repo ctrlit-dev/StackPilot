@@ -1,0 +1,3 @@
+{
+  "stackPilot.workspaceTrust": "StackPilot can inspect projects in Restricted Mode, but running Python, Django, Node, Vite, package-manager, or scaffold commands requires Workspace Trust."
+}

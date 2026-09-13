@@ -1,0 +1,587 @@
+{
+  "name": "stackpilot",
+  "displayName": "StackPilot",
+  "description": "VS Code extension for managing local Django and Vite development workflows.",
+  "version": "0.0.1",
+  "publisher": "ctrlit-dev",
+  "icon": "resources/icon.png",
+  "license": "MIT",
+  "author": "ctrlit-dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ctrlit-dev/StackPilot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ctrlit-dev/StackPilot/issues"
+  },
+  "homepage": "https://github.com/ctrlit-dev/StackPilot#readme",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "django",
+    "vite",
+    "python",
+    "typescript",
+    "development"
+  ],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onWebviewPanel:stackPilot.dashboard"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%stackPilot.workspaceTrust%",
+      "restrictedConfigurations": [
+        "stackPilot.backend.directory",
+        "stackPilot.backend.managePy",
+        "stackPilot.python.interpreter",
+        "stackPilot.python.venvDirectory",
+        "stackPilot.frontend.directory",
+        "stackPilot.frontend.packageManager",
+        "stackPilot.frontend.devScript",
+        "stackPilot.frontend.buildScript",
+        "stackPilot.frontend.testScript",
+        "stackPilot.backend.host",
+        "stackPilot.backend.port",
+        "stackPilot.frontend.port",
+        "stackPilot.openBrowserOnStart",
+        "stackPilot.backend.autoRestartOnCrash",
+        "stackPilot.frontend.autoRestartOnCrash"
+      ]
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "stackPilot",
+          "title": "StackPilot",
+          "icon": "resources/activity-bar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "stackPilot": [
+        {
+          "id": "stackPilot.tree",
+          "name": "StackPilot",
+          "icon": "resources/activity-bar-icon.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "stackPilot.tree",
+        "contents": "No folder is open.\n[Open Folder](command:vscode.openFolder)",
+        "when": "!stackPilot.hasWorkspace"
+      },
+      {
+        "view": "stackPilot.tree",
+        "contents": "Multiple workspace folders are open.\n[Select Workspace Folder](command:stackPilot.selectWorkspace)",
+        "when": "stackPilot.workspaceAmbiguous"
+      },
+      {
+        "view": "stackPilot.tree",
+        "contents": "No Django or Vite project was detected in this workspace.\n[Create New Project](command:stackPilot.createProject)\n[Refresh Detection](command:stackPilot.refresh)\n[Open Settings](command:stackPilot.openSettings)",
+        "when": "stackPilot.hasSelectedWorkspace && !stackPilot.hasBackend && !stackPilot.hasFrontend"
+      }
+    ],
+    "commands": [
+      {
+        "command": "stackPilot.refresh",
+        "title": "Refresh Detection",
+        "category": "StackPilot",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "stackPilot.openDashboard",
+        "title": "Open Dashboard",
+        "category": "StackPilot",
+        "icon": "$(open-preview)",
+        "enablement": "stackPilot.hasSelectedWorkspace"
+      },
+      {
+        "command": "stackPilot.selectWorkspace",
+        "title": "Select Workspace Folder",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasWorkspace"
+      },
+      {
+        "command": "stackPilot.startBackend",
+        "title": "Start Django Server",
+        "category": "StackPilot",
+        "icon": "$(play)",
+        "enablement": "stackPilot.hasSelectedWorkspace && stackPilot.hasBackend && !stackPilot.backendRunning"
+      },
+      {
+        "command": "stackPilot.stopBackend",
+        "title": "Stop Django Server",
+        "category": "StackPilot",
+        "icon": "$(debug-stop)",
+        "enablement": "stackPilot.backendRunning"
+      },
+      {
+        "command": "stackPilot.startFrontend",
+        "title": "Start Frontend Server",
+        "category": "StackPilot",
+        "icon": "$(play)",
+        "enablement": "stackPilot.hasSelectedWorkspace && stackPilot.hasFrontend && !stackPilot.frontendRunning"
+      },
+      {
+        "command": "stackPilot.stopFrontend",
+        "title": "Stop Frontend Server",
+        "category": "StackPilot",
+        "icon": "$(debug-stop)",
+        "enablement": "stackPilot.frontendRunning"
+      },
+      {
+        "command": "stackPilot.toggleBackend",
+        "title": "Toggle Django Server",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasSelectedWorkspace && stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.toggleFrontend",
+        "title": "Toggle Frontend Server",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasSelectedWorkspace && stackPilot.hasFrontend"
+      },
+      {
+        "command": "stackPilot.startAll",
+        "title": "Start All",
+        "category": "StackPilot",
+        "icon": "$(run-all)",
+        "enablement": "stackPilot.hasSelectedWorkspace"
+      },
+      {
+        "command": "stackPilot.stopAll",
+        "title": "Stop All",
+        "category": "StackPilot",
+        "icon": "$(stop-circle)",
+        "enablement": "stackPilot.hasSelectedWorkspace"
+      },
+      {
+        "command": "stackPilot.openApplication",
+        "title": "Open Application",
+        "category": "StackPilot",
+        "icon": "$(link-external)",
+        "enablement": "stackPilot.backendRunning || stackPilot.frontendRunning"
+      },
+      {
+        "command": "stackPilot.openSimpleBrowser",
+        "title": "Open in Simple Browser",
+        "category": "StackPilot",
+        "icon": "$(preview)",
+        "enablement": "stackPilot.backendRunning || stackPilot.frontendRunning"
+      },
+      {
+        "command": "stackPilot.copyBackendUrl",
+        "title": "Copy Backend URL",
+        "category": "StackPilot",
+        "enablement": "stackPilot.backendRunning"
+      },
+      {
+        "command": "stackPilot.copyFrontendUrl",
+        "title": "Copy Frontend URL",
+        "category": "StackPilot",
+        "enablement": "stackPilot.frontendRunning"
+      },
+      {
+        "command": "stackPilot.openAdmin",
+        "title": "Open Admin",
+        "category": "StackPilot",
+        "icon": "$(account)",
+        "enablement": "stackPilot.backendRunning"
+      },
+      {
+        "command": "stackPilot.openLogs",
+        "title": "Open Logs",
+        "category": "StackPilot",
+        "icon": "$(output)"
+      },
+      {
+        "command": "stackPilot.openSettings",
+        "title": "Open Settings",
+        "category": "StackPilot",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "stackPilot.makeMigrations",
+        "title": "Make Migrations",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.migrate",
+        "title": "Migrate",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.showMigrations",
+        "title": "Show Migrations",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.createSuperuser",
+        "title": "Create Superuser",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.openDjangoShell",
+        "title": "Open Django Shell",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.openDbShell",
+        "title": "Open Database Shell",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.createDjangoApp",
+        "title": "Create Django App…",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.runDjangoTests",
+        "title": "Run Django Tests",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.installPythonDependencies",
+        "title": "Install Python Dependencies",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.installFrontendDependencies",
+        "title": "Install Frontend Dependencies",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasFrontend"
+      },
+      {
+        "command": "stackPilot.openBackendEnvFile",
+        "title": "Open Backend .env File",
+        "category": "StackPilot",
+        "icon": "$(key)",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.openFrontendEnvFile",
+        "title": "Open Frontend .env File",
+        "category": "StackPilot",
+        "icon": "$(key)",
+        "enablement": "stackPilot.hasFrontend"
+      },
+      {
+        "command": "stackPilot.buildFrontend",
+        "title": "Build Frontend",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasFrontend"
+      },
+      {
+        "command": "stackPilot.runFrontendTests",
+        "title": "Run Frontend Tests",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasFrontend"
+      },
+      {
+        "command": "stackPilot.runFrontendScript",
+        "title": "Run Frontend Script…",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasFrontend"
+      },
+      {
+        "command": "stackPilot.runManagementCommand",
+        "title": "Run Django Management Command…",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.djangoAppMakeMigrations",
+        "title": "Make Migrations for App",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.djangoAppMigrate",
+        "title": "Migrate App",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.djangoAppShowMigrations",
+        "title": "Show Migrations for App",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.djangoAppTest",
+        "title": "Run Tests for App",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.createVirtualEnvironment",
+        "title": "Create Virtual Environment",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasBackend"
+      },
+      {
+        "command": "stackPilot.initializeProject",
+        "title": "Initialize Project",
+        "category": "StackPilot",
+        "enablement": "stackPilot.hasSelectedWorkspace"
+      },
+      {
+        "command": "stackPilot.createProject",
+        "title": "New Django + Vite Project…",
+        "category": "StackPilot"
+      },
+      {
+        "command": "stackPilot.generateDebugConfig",
+        "title": "Generate Debug Configuration",
+        "category": "StackPilot",
+        "icon": "$(debug)",
+        "enablement": "stackPilot.hasBackend || stackPilot.hasFrontend"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "stackPilot.startAll",
+          "when": "view == stackPilot.tree",
+          "group": "navigation@1"
+        },
+        {
+          "command": "stackPilot.stopAll",
+          "when": "view == stackPilot.tree",
+          "group": "navigation@2"
+        },
+        {
+          "command": "stackPilot.openApplication",
+          "when": "view == stackPilot.tree && (stackPilot.backendRunning || stackPilot.frontendRunning)",
+          "group": "navigation@3"
+        },
+        {
+          "command": "stackPilot.refresh",
+          "when": "view == stackPilot.tree",
+          "group": "navigation@4"
+        },
+        {
+          "command": "stackPilot.openDashboard",
+          "when": "view == stackPilot.tree",
+          "group": "navigation@5"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "stackPilot.startBackend",
+          "when": "view == stackPilot.tree && (viewItem == backendServer.stopped || viewItem == backendServer.failed)",
+          "group": "inline"
+        },
+        {
+          "command": "stackPilot.stopBackend",
+          "when": "view == stackPilot.tree && (viewItem == backendServer.running || viewItem == backendServer.starting)",
+          "group": "inline"
+        },
+        {
+          "command": "stackPilot.startFrontend",
+          "when": "view == stackPilot.tree && (viewItem == frontendServer.stopped || viewItem == frontendServer.failed)",
+          "group": "inline"
+        },
+        {
+          "command": "stackPilot.stopFrontend",
+          "when": "view == stackPilot.tree && (viewItem == frontendServer.running || viewItem == frontendServer.starting)",
+          "group": "inline"
+        },
+        {
+          "command": "stackPilot.djangoAppMakeMigrations",
+          "when": "view == stackPilot.tree && viewItem == djangoApp",
+          "group": "1_djangoApp@1"
+        },
+        {
+          "command": "stackPilot.djangoAppMigrate",
+          "when": "view == stackPilot.tree && viewItem == djangoApp",
+          "group": "1_djangoApp@2"
+        },
+        {
+          "command": "stackPilot.djangoAppShowMigrations",
+          "when": "view == stackPilot.tree && viewItem == djangoApp",
+          "group": "1_djangoApp@3"
+        },
+        {
+          "command": "stackPilot.djangoAppTest",
+          "when": "view == stackPilot.tree && viewItem == djangoApp",
+          "group": "1_djangoApp@4"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "stackPilot.startAll",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "stackPilot.hasSelectedWorkspace"
+      },
+      {
+        "command": "stackPilot.stopAll",
+        "key": "ctrl+alt+shift+r",
+        "mac": "cmd+alt+shift+r",
+        "when": "stackPilot.hasSelectedWorkspace"
+      },
+      {
+        "command": "stackPilot.openDashboard",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d",
+        "when": "stackPilot.hasSelectedWorkspace"
+      }
+    ],
+    "configuration": {
+      "title": "StackPilot",
+      "properties": {
+        "stackPilot.backend.directory": {
+          "type": "string",
+          "default": "backend",
+          "scope": "resource",
+          "description": "Relative path from the selected workspace folder to the Django backend directory."
+        },
+        "stackPilot.backend.managePy": {
+          "type": "string",
+          "default": "backend/manage.py",
+          "scope": "resource",
+          "description": "Relative path from the selected workspace folder to Django's manage.py file."
+        },
+        "stackPilot.python.interpreter": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Optional Python interpreter path. Leave empty to detect a project-local virtual environment or Python on PATH."
+        },
+        "stackPilot.python.venvDirectory": {
+          "type": "string",
+          "default": "backend/.venv",
+          "scope": "resource",
+          "description": "Relative path for the project's preferred Python virtual environment directory."
+        },
+        "stackPilot.frontend.directory": {
+          "type": "string",
+          "default": "frontend",
+          "scope": "resource",
+          "description": "Relative path from the selected workspace folder to the Vite frontend directory."
+        },
+        "stackPilot.frontend.packageManager": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "npm",
+            "pnpm",
+            "yarn",
+            "bun"
+          ],
+          "default": "auto",
+          "scope": "resource",
+          "description": "Package manager override for frontend commands. Use auto to detect from lockfiles."
+        },
+        "stackPilot.frontend.devScript": {
+          "type": "string",
+          "default": "dev",
+          "scope": "resource",
+          "description": "Frontend package.json script to use for the development server when detection does not choose a better script."
+        },
+        "stackPilot.frontend.buildScript": {
+          "type": "string",
+          "default": "build",
+          "scope": "resource",
+          "description": "Frontend package.json script to use for production builds."
+        },
+        "stackPilot.frontend.testScript": {
+          "type": "string",
+          "default": "test",
+          "scope": "resource",
+          "description": "Frontend package.json script to use for tests when the script exists."
+        },
+        "stackPilot.backend.host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "scope": "resource",
+          "description": "Host address for Django's development server. Use 127.0.0.1 by default for local development."
+        },
+        "stackPilot.backend.port": {
+          "type": "integer",
+          "default": 8000,
+          "minimum": 1,
+          "maximum": 65535,
+          "scope": "resource",
+          "description": "Port for Django's development server."
+        },
+        "stackPilot.frontend.port": {
+          "type": "integer",
+          "default": 5173,
+          "minimum": 1,
+          "maximum": 65535,
+          "scope": "resource",
+          "description": "Preferred frontend development server port. Vite may still choose another port at runtime."
+        },
+        "stackPilot.openBrowserOnStart": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Offer browser-opening behavior after starting managed development servers. No browser is opened automatically without a user action."
+        },
+        "stackPilot.backend.autoRestartOnCrash": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Automatically restart the Django server if it exits unexpectedly (not when you stop it yourself). Gives up after 3 consecutive crashes."
+        },
+        "stackPilot.frontend.autoRestartOnCrash": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Automatically restart the frontend server if it exits unexpectedly (not when you stop it yourself). Gives up after 3 consecutive crashes."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "watch:esbuild": "node esbuild.js --watch",
+    "build": "node esbuild.js",
+    "build:production": "node esbuild.js --production",
+    "vscode:prepublish": "npm run build:production",
+    "lint": "eslint .",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "npm run compile && node --test --test-timeout=20000 \"out/test/unit/**/*.test.js\"",
+    "test:integration": "npm run compile && npm run build && node ./out/test/integration/runTest.js",
+    "vsix": "vsce package --no-rewrite-relative-links"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/node": "^22.20.2",
+    "@types/vscode": "1.90.0",
+    "@vscode/codicons": "^0.0.46-24",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.9.2",
+    "cross-spawn": "^7.0.6",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0"
+  }
+}
