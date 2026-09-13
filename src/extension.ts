@@ -85,7 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
     await updateWorkspaceContextKeys(selection, workspaceTrust.getSnapshot().isTrusted, detectedProject);
   };
 
-  const migrationStatusController = new MigrationStatusController(spawner, projectState);
+  const migrationStatusController = new MigrationStatusController(spawner, projectState, djangoBackendAdapter);
 
   const treeProvider = new StackPilotTreeProvider(projectState, processManager);
   const treeView = vscode.window.createTreeView(VIEW_ID, { treeDataProvider: treeProvider });
@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext): void {
     spawner,
     projectState,
     workspaceTrust,
-    (state) => backendTestSuitePlan(state.detectedProject)
+    (state) => backendTestSuitePlan(state.detectedProject, djangoBackendAdapter)
   );
   const frontendTestController = new TestSuiteController(
     "stackPilotFrontendTests",

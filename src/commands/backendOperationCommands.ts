@@ -28,7 +28,6 @@ import {
   planShowMigrations
 } from "./backendOperationPlans";
 import type { CommandContext } from "./commandContext";
-import { validateDjangoAppName } from "./djangoIdentifierValidation";
 import { offerToRegisterInstalledApp } from "./installedAppsCommand";
 import { runAndReport } from "./operationRunner";
 
@@ -59,7 +58,7 @@ export async function makeMigrations(context: CommandContext): Promise<void> {
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Make Migrations"))) {
     return;
   }
-  const plan = planMakeMigrations(context.projectState.getState().detectedProject);
+  const plan = planMakeMigrations(context.projectState.getState().detectedProject, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Make Migrations", plan.kind);
     return;
@@ -73,7 +72,7 @@ export async function migrate(context: CommandContext): Promise<void> {
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Migrate"))) {
     return;
   }
-  const plan = planMigrate(context.projectState.getState().detectedProject);
+  const plan = planMigrate(context.projectState.getState().detectedProject, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Migrate", plan.kind);
     return;
@@ -87,7 +86,7 @@ export async function showMigrations(context: CommandContext): Promise<void> {
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Show Migrations"))) {
     return;
   }
-  const plan = planShowMigrations(context.projectState.getState().detectedProject);
+  const plan = planShowMigrations(context.projectState.getState().detectedProject, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Show Migrations", plan.kind);
     return;
@@ -99,7 +98,7 @@ export async function runDjangoTests(context: CommandContext): Promise<void> {
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Run Django Tests"))) {
     return;
   }
-  const plan = planDjangoTest(context.projectState.getState().detectedProject);
+  const plan = planDjangoTest(context.projectState.getState().detectedProject, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Run Django Tests", plan.kind);
     return;
@@ -149,7 +148,7 @@ export async function createDjangoApp(context: CommandContext): Promise<void> {
     title: "Create Django App",
     prompt: "Enter the new Django app name",
     validateInput: (value) => {
-      const result = validateDjangoAppName(value);
+      const result = context.backendAdapter.validateAppName(value);
       return result.valid ? undefined : result.reason;
     }
   });
@@ -158,7 +157,7 @@ export async function createDjangoApp(context: CommandContext): Promise<void> {
   }
 
   const state = context.projectState.getState();
-  const plan = planCreateApp(state.detectedProject, appName);
+  const plan = planCreateApp(state.detectedProject, appName, context.backendAdapter);
   if (plan.kind === "invalid-name") {
     showActionableError(context.outputChannel, `Could not create app: ${plan.reason}`);
     return;
@@ -185,7 +184,7 @@ export async function openDjangoShell(context: CommandContext): Promise<void> {
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Django Shell"))) {
     return;
   }
-  const plan = planDjangoShell(context.projectState.getState().detectedProject);
+  const plan = planDjangoShell(context.projectState.getState().detectedProject, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Django Shell", plan.kind);
     return;
@@ -197,7 +196,7 @@ export async function openDbShell(context: CommandContext): Promise<void> {
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Database Shell"))) {
     return;
   }
-  const plan = planDbShell(context.projectState.getState().detectedProject);
+  const plan = planDbShell(context.projectState.getState().detectedProject, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Database Shell", plan.kind);
     return;
@@ -209,7 +208,7 @@ export async function createSuperuser(context: CommandContext): Promise<void> {
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Create Superuser"))) {
     return;
   }
-  const plan = planCreateSuperuser(context.projectState.getState().detectedProject);
+  const plan = planCreateSuperuser(context.projectState.getState().detectedProject, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Create Superuser", plan.kind);
     return;
@@ -233,7 +232,7 @@ export async function runManagementCommand(context: CommandContext): Promise<voi
   }
 
   const args = splitCommandArguments(input);
-  const plan = planManagementCommand(context.projectState.getState().detectedProject, args);
+  const plan = planManagementCommand(context.projectState.getState().detectedProject, args, context.backendAdapter);
   if (plan.kind !== "ready") {
     reportBackendPrerequisiteFailure(context, "Run Django Management Command", plan.kind);
     return;

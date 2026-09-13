@@ -42,15 +42,38 @@ tracks a `ServiceId` given an `executable`/`args`/`cwd`, with zero knowledge
 of Django, Vite, or anything else. The framework-specific knowledge that
 decides *what* that `executable`/`args`/`cwd` should be for a given backend
 framework lives in `adapters/` instead - today just
-`adapters/djangoBackendAdapter.ts`, which builds Django's
-`<python> manage.py runserver <host>:<port>` command behind the small
-`BackendFrameworkAdapter` contract (`adapters/backendFrameworkAdapter.ts`).
-`commands/startPlans.ts`'s `planBackendStart()` decides *whether* a start is
-possible (backend/Python detected) and delegates to an injected
-`BackendFrameworkAdapter` for the command shape; it has no Django knowledge
-of its own. The adapter is wired in once, explicitly, at the composition root
-(`extension.ts` passes `djangoBackendAdapter` into `CommandContext`) - there
-is no adapter registry yet, since exactly one backend framework exists today.
+`adapters/djangoBackendAdapter.ts`, behind the `BackendFrameworkAdapter`
+contract (`adapters/backendFrameworkAdapter.ts`). The adapter does not
+execute anything itself - it only builds descriptors (`StartProcessOptions`,
+`OneShotCommandOptions`, `InteractiveShellInvocation`) or validates a piece
+of input about to become part of one; spawning, terminals, Workspace Trust,
+and state all remain exactly where they were. `BackendFrameworkAdapter`
+currently covers two responsibility groups:
+
+1. **the backend start descriptor** (`buildStartCommand` -
+   `<python> manage.py runserver <host>:<port>`), and
+2. **backend framework-specific operation descriptors / validation**
+   (`buildMigrateCommand`, `buildMakeMigrationsCommand`,
+   `buildShowMigrationsCommand`, `buildTestCommand`,
+   `buildManagementCommand` (the free-form manage.py escape hatch),
+   `validateAppName`/`buildStartAppCommand`, and the interactive
+   `buildShellInvocation`/`buildDatabaseShellInvocation`/
+   `buildCreateSuperuserInvocation`).
+
+Framework-specific operations retain their concrete invocation types
+(`OneShotCommandOptions` for one-shot commands, `InteractiveShellInvocation`
+for anything needing real stdin) rather than being collapsed into one
+generic, data-driven operation model - there is currently no generic
+operation registry, and none is planned until a second backend framework
+makes a real, observed pattern worth generalizing.
+`commands/startPlans.ts`'s `planBackendStart()` and
+`commands/backendOperationPlans.ts`'s plan functions decide *whether* an
+operation is possible (backend/Python detected, input valid) and delegate to
+an injected `BackendFrameworkAdapter` for the descriptor shape; neither has
+Django knowledge of its own. The adapter is wired in once, explicitly, at the
+composition root (`extension.ts` passes `djangoBackendAdapter` into
+`CommandContext` and into `MigrationStatusController`) - there is no adapter
+registry yet, since exactly one backend framework exists today.
 
 **`ServiceId` and `FrameworkAdapterId` are deliberately different types and
 must never be compared or unioned.** A `ServiceId` (`"backend"`, `"frontend"`,
@@ -60,10 +83,9 @@ process's command. Which adapter builds a given service's command is a
 decision made above `ProcessManager` (currently: `backend` always uses
 `djangoBackendAdapter`), not something the id strings themselves encode.
 
-This extraction currently covers only the backend *start* command - Django's
-other operations (migrate, shell, createsuperuser, ...), Django app
-detection, and the frontend/Vite side are unchanged and still live where they
-did before.
+Django app detection (`detectDjangoApps`), the New Project scaffold wizard,
+and the frontend/Vite side are unchanged and still live where they did
+before - this boundary currently covers backend start and operations only.
 
 ## Detection (read-only)
 

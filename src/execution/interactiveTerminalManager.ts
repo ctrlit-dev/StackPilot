@@ -1,5 +1,16 @@
 import * as vscode from "vscode";
-import type { InteractiveShellInvocation } from "./djangoManageCommand";
+
+/**
+ * A real, interactive program to run as a terminal's process directly
+ * (shellPath/shellArgs, no intermediate shell to inject through) - framework-
+ * neutral in shape, even though its only current producer is
+ * `DjangoBackendAdapter` (Django Shell, Database Shell, Create Superuser).
+ */
+export interface InteractiveShellInvocation {
+  readonly shellPath: string;
+  readonly shellArgs: readonly string[];
+  readonly cwd: string;
+}
 
 /**
  * Django Shell / Create Superuser need a real, interactive terminal the user
