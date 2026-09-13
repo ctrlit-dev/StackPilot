@@ -1,3 +1,5 @@
+import type { BackendFrameworkDetection } from "../adapters/backendFrameworkDetection";
+import type { FrontendFrameworkDetection } from "../adapters/frontendFrameworkDetection";
 import type { StackPilotConfiguration } from "../config/configurationModel";
 import { detectBackendProject, type BackendDetectionResult } from "./backendDetector";
 import { detectDjangoApps, type DjangoApp } from "./djangoAppDetector";
@@ -19,10 +21,12 @@ export async function detectProject(
   fs: FileSystemProbe,
   workspaceRootPath: string,
   configuration: StackPilotConfiguration,
+  backendFrameworkDetection: BackendFrameworkDetection,
+  frontendFrameworkDetection: FrontendFrameworkDetection,
   pythonVersionProbe?: PythonVersionProbe
 ): Promise<DetectedProject> {
-  const backend = await detectBackendProject(fs, workspaceRootPath, configuration);
-  const frontend = await detectFrontendProject(fs, workspaceRootPath, configuration);
+  const backend = await detectBackendProject(fs, workspaceRootPath, configuration, backendFrameworkDetection);
+  const frontend = await detectFrontendProject(fs, workspaceRootPath, configuration, frontendFrameworkDetection);
   const python = await detectPythonEnvironment(fs, workspaceRootPath, backend.selected?.rootPath, configuration, pythonVersionProbe);
   const djangoApps = backend.selected === undefined ? [] : await detectDjangoApps(fs, backend.selected.rootPath);
 

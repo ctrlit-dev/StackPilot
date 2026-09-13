@@ -2,9 +2,17 @@ import assert from "node:assert/strict";
 import * as path from "node:path";
 import test from "node:test";
 
-import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
-import { detectProject } from "../../src/detection/projectDetector";
+import { djangoBackendDetection } from "../../src/adapters/djangoBackendDetection";
+import { viteFrontendDetection } from "../../src/adapters/viteFrontendDetection";
+import { DEFAULT_CONFIGURATION, type StackPilotConfiguration } from "../../src/config/configurationModel";
+import { detectProject as detectProjectWithFrameworkDetection } from "../../src/detection/projectDetector";
+import type { FileSystemProbe } from "../../src/detection/fileSystem";
 import { InMemoryFileSystemProbe } from "./fakes/inMemoryFileSystem";
+
+/** Wires the real Django/Vite detection, unchanged - projectDetector.ts itself is generic composition, framework-neutral. */
+function detectProject(fs: FileSystemProbe, workspaceRootPath: string, configuration: StackPilotConfiguration) {
+  return detectProjectWithFrameworkDetection(fs, workspaceRootPath, configuration, djangoBackendDetection, viteFrontendDetection);
+}
 
 const workspaceRoot = path.resolve("pc-test-fixtures", "project-detector");
 

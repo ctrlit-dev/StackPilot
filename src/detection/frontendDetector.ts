@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import type { FrontendFrameworkDetection } from "../adapters/frontendFrameworkDetection";
 import type { StackPilotConfiguration } from "../config/configurationModel";
 import { resolveWorkspacePath, selectHighestConfidenceCandidate, uniqueStrings } from "../utils/paths";
 import { checkCandidatePath, type FileSystemProbe } from "./fileSystem";
@@ -22,12 +23,22 @@ export interface FrontendDetectionResult {
 }
 
 const FRONTEND_CANDIDATE_DIRECTORIES = ["frontend", "client", "web", "."] as const;
-const VITE_CONFIG_FILES = ["vite.config.ts", "vite.config.js", "vite.config.mts", "vite.config.mjs"] as const;
 
+/**
+ * Orchestrates frontend detection generically: any workspace-relative
+ * directory (configured, or one of the known candidate names) with a
+ * `package.json` already qualifies as a frontend project candidate - this
+ * function has no knowledge of Vite or any other framework's own config
+ * file. The injected `FrontendFrameworkDetection` is only ever asked to add
+ * evidence to an already-qualified candidate (see
+ * `adapters/viteFrontendDetection.ts`); its absence never disqualifies one -
+ * see docs/ARCHITECTURE.md.
+ */
 export async function detectFrontendProject(
   fs: FileSystemProbe,
   workspaceRootPath: string,
-  configuration: StackPilotConfiguration
+  configuration: StackPilotConfiguration,
+  frontendFrameworkDetection: FrontendFrameworkDetection
 ): Promise<FrontendDetectionResult> {
   const diagnostics: string[] = [];
   const candidateDirectories = uniqueStrings([configuration.frontendDirectory, ...FRONTEND_CANDIDATE_DIRECTORIES]);
@@ -51,7 +62,7 @@ export async function detectFrontendProject(
       continue;
     }
 
-    const viteConfigPath = await findViteConfigPath(fs, rootPath);
+    const viteConfigPath = await frontendFrameworkDetection.findFrameworkConfigPath(fs, rootPath);
     const evidence = ["package.json"];
     if (viteConfigPath !== undefined) {
       evidence.push(path.basename(viteConfigPath));
@@ -86,17 +97,6 @@ function calculateFrontendScore(candidateDirectory: string, viteConfigPath: stri
     score += 10;
   }
   return score;
-}
-
-async function findViteConfigPath(fs: FileSystemProbe, rootPath: string): Promise<string | undefined> {
-  for (const configFile of VITE_CONFIG_FILES) {
-    const configPath = path.join(rootPath, configFile);
-    if (await fs.fileExists(configPath)) {
-      return configPath;
-    }
-  }
-
-  return undefined;
 }
 
 type PackageJsonReadResult =

@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import * as path from "node:path";
 import test from "node:test";
 
+import type { FrontendFrameworkDetection } from "../../src/adapters/frontendFrameworkDetection";
+import { viteFrontendDetection } from "../../src/adapters/viteFrontendDetection";
 import { DEFAULT_CONFIGURATION, type StackPilotConfiguration } from "../../src/config/configurationModel";
-import { detectFrontendProject } from "../../src/detection/frontendDetector";
+import { detectFrontendProject as detectFrontendProjectWithFrameworkDetection } from "../../src/detection/frontendDetector";
+import type { FileSystemProbe } from "../../src/detection/fileSystem";
 import { InMemoryFileSystemProbe } from "./fakes/inMemoryFileSystem";
 
 const workspaceRoot = path.resolve("pc-test-fixtures", "frontend-detector");
@@ -14,6 +17,11 @@ function configuration(overrides: Partial<StackPilotConfiguration> = {}): StackP
 
 function packageJson(scripts: Record<string, string>): string {
   return JSON.stringify({ name: "fixture", scripts });
+}
+
+/** Every existing test below exercises real Vite detection, unchanged - see the delegation test at the bottom for proof that this is injected, not hard-coded. */
+function detectFrontendProject(fs: FileSystemProbe, workspaceRootPath: string, config: StackPilotConfiguration) {
+  return detectFrontendProjectWithFrameworkDetection(fs, workspaceRootPath, config, viteFrontendDetection);
 }
 
 void test("detects a Vite frontend in ./frontend", async () => {
@@ -114,4 +122,24 @@ void test("detects a Vite frontend at a workspace root containing spaces and Uni
   const result = await detectFrontendProject(fs, unicodeWorkspaceRoot, configuration());
 
   assert.equal(result.selected?.rootPath, path.join(unicodeWorkspaceRoot, "frontend"));
+});
+
+void test("detectFrontendProject has no knowledge of 'vite.config' itself - a package.json alone still qualifies, and the injected framework detection only adds evidence", async () => {
+  // Proves detectFrontendProject is framework-detection-driven, not Vite-
+  // specific itself: a fake framework detection that reports a completely
+  // different config file name must have that path reflected verbatim as
+  // evidence, and a directory with only package.json (the fake detection
+  // finds nothing) must still be a valid candidate - config-file evidence
+  // only boosts confidence, it never gates candidacy.
+  const fakeDetection: FrontendFrameworkDetection = {
+    frameworkId: "fake-framework",
+    findFrameworkConfigPath: (_fs, rootPath) => Promise.resolve(path.join(rootPath, "fake.config.js"))
+  };
+  const fs = new InMemoryFileSystemProbe().addFile(path.join(workspaceRoot, "frontend", "package.json"), packageJson({ dev: "fake" }));
+
+  const result = await detectFrontendProjectWithFrameworkDetection(fs, workspaceRoot, configuration(), fakeDetection);
+
+  assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "frontend"));
+  assert.equal(result.selected?.viteConfigPath, path.join(workspaceRoot, "frontend", "fake.config.js"));
+  assert.deepEqual(result.selected?.evidence, ["package.json", "fake.config.js"]);
 });
