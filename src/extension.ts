@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { djangoBackendAdapter } from "./adapters/djangoBackendAdapter";
 import { djangoBackendDetection } from "./adapters/djangoBackendDetection";
+import { fastApiBackendAdapter } from "./adapters/fastApiBackendAdapter";
+import { fastApiBackendDetection } from "./adapters/fastApiBackendDetection";
 import { viteFrontendAdapter } from "./adapters/viteFrontendAdapter";
 import { viteFrontendDetection } from "./adapters/viteFrontendDetection";
 import { registerCommands } from "./commands/registerCommands";
@@ -79,7 +81,7 @@ export function activate(context: vscode.ExtensionContext): void {
       fileSystem,
       selectedWorkspaceUri.fsPath,
       configuration.value,
-      djangoBackendDetection,
+      [djangoBackendDetection, fastApiBackendDetection],
       viteFrontendDetection
     );
     for (const diagnostic of detectedProject.diagnostics) {
@@ -168,6 +170,7 @@ export function activate(context: vscode.ExtensionContext): void {
     projectState,
     processManager,
     backendAdapter: djangoBackendAdapter,
+    backendStartAdapters: [djangoBackendAdapter, fastApiBackendAdapter],
     spawner,
     portChecker,
     terminalManager,

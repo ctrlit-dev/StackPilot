@@ -40,41 +40,61 @@ kept intentionally small.
 
 `ProcessManager` (see below) knows services, not frameworks: it starts and
 tracks a `ServiceId` given an `executable`/`args`/`cwd`, with zero knowledge
-of Django, Vite, or anything else. The framework-specific knowledge that
-decides *what* that `executable`/`args`/`cwd` should be for a given backend
-framework lives in `adapters/` instead - today just
-`adapters/djangoBackendAdapter.ts`, behind the `BackendFrameworkAdapter`
-contract (`adapters/backendFrameworkAdapter.ts`). The adapter does not
-execute anything itself - it only builds descriptors (`StartProcessOptions`,
-`OneShotCommandOptions`, `InteractiveShellInvocation`) or validates a piece
-of input about to become part of one; spawning, terminals, Workspace Trust,
-and state all remain exactly where they were. `BackendFrameworkAdapter`
-currently covers two responsibility groups:
+of Django, FastAPI, Vite, or anything else. The framework-specific knowledge
+that decides *what* that `executable`/`args`/`cwd` should be for a given
+backend framework lives in `adapters/` instead -
+`adapters/djangoBackendAdapter.ts` and `adapters/fastApiBackendAdapter.ts`
+today, behind a split contract in `adapters/backendFrameworkAdapter.ts`:
 
-1. **the backend start descriptor** (`buildStartCommand` -
-   `<python> manage.py runserver <host>:<port>`), and
-2. **backend framework-specific operation descriptors / validation**
-   (`buildMigrateCommand`, `buildMakeMigrationsCommand`,
-   `buildShowMigrationsCommand`, `buildTestCommand`,
-   `buildManagementCommand` (the free-form manage.py escape hatch),
-   `validateAppName`/`buildStartAppCommand`, and the interactive
-   `buildShellInvocation`/`buildDatabaseShellInvocation`/
-   `buildCreateSuperuserInvocation`).
+- **`BackendStartAdapter`** - the minimal, shared capability every backend
+  framework needs: `id` (`FrameworkAdapterId`) plus `buildStartCommand`
+  (`<python> ...` → `StartProcessOptions`). `fastApiBackendAdapter` (builds
+  `python -m uvicorn <appImport> --host <host> --port <port>`) implements
+  exactly this and nothing else.
+- **`BackendFrameworkAdapter extends BackendStartAdapter`** - adds Django's
+  fuller set of framework-specific operations (`buildMigrateCommand`,
+  `buildMakeMigrationsCommand`, `buildShowMigrationsCommand`,
+  `buildTestCommand`, `buildManagementCommand` (the free-form manage.py
+  escape hatch), `validateAppName`/`buildStartAppCommand`, and the
+  interactive `buildShellInvocation`/`buildDatabaseShellInvocation`/
+  `buildCreateSuperuserInvocation`). `djangoBackendAdapter` is the only
+  implementation.
 
-Framework-specific operations retain their concrete invocation types
-(`OneShotCommandOptions` for one-shot commands, `InteractiveShellInvocation`
-for anything needing real stdin) rather than being collapsed into one
-generic, data-driven operation model - there is currently no generic
-operation registry, and none is planned until a second backend framework
-makes a real, observed pattern worth generalizing.
+This split exists because trying to write a second, real backend framework
+adapter (FastAPI) against the original single `BackendFrameworkAdapter`
+interface would have forced it to implement nine Django-only methods as
+dummies or throws - a fictitious "FastAPI migrate command" existing only to
+satisfy a type. `BackendStartAdapter` names the one capability every backend
+framework actually needs (start); the other nine belong to Django
+specifically and are not generalized until a second framework genuinely
+needs an equivalent. `buildStartCommand` itself takes the full
+`DetectedService` (not a Django-shaped `BackendProject`) so each adapter
+extracts only the facts it needs via its own metadata helper
+(`getDjangoMetadata`/`getFastApiMetadata`) - Django reconstructs
+`managePyPath`, FastAPI reads `appImport`, and no caller needs to build a
+Django-shaped object to start a FastAPI service.
+
+The adapter does not execute anything itself - it only builds descriptors
+(`StartProcessOptions`, `OneShotCommandOptions`, `InteractiveShellInvocation`)
+or validates a piece of input about to become part of one; spawning,
+terminals, Workspace Trust, and state all remain exactly where they were.
+
 `commands/startPlans.ts`'s `planBackendStart()` and
 `commands/backendOperationPlans.ts`'s plan functions decide *whether* an
 operation is possible (backend/Python detected, input valid) and delegate to
-an injected `BackendFrameworkAdapter` for the descriptor shape; neither has
-Django knowledge of its own. The adapter is wired in once, explicitly, at the
-composition root (`extension.ts` passes `djangoBackendAdapter` into
-`CommandContext` and into `MigrationStatusController`) - there is no adapter
-registry yet, since exactly one backend framework exists today.
+an injected adapter for the descriptor shape; neither has Django or FastAPI
+knowledge of its own. `resolveBackendStartAdapter` (`commands/startPlans.ts`)
+is the one explicit "selection boundary" function that picks the registered
+`BackendStartAdapter` matching the detected service's `frameworkId` - a plain
+array lookup (`backendStartAdapters.find((a) => a.id === frameworkId)`), not
+a registry class, acceptable specifically because exactly two backend
+frameworks exist. Django's nine operation-specific plans still take
+`djangoBackendAdapter` directly and unconditionally (wired once into
+`CommandContext.backendAdapter`) since FastAPI has no equivalent operations
+in scope - they safely report `no-backend` rather than spawn anything when
+the detected backend's `frameworkMetadata` isn't actually Django's (see
+`getDjangoBackendProject` below), never a fabricated Django command against a
+FastAPI project.
 
 **`ServiceId` and `FrameworkAdapterId` are deliberately different types and
 must never be compared or unioned.** A `ServiceId` (`"backend"`, `"frontend"`,
@@ -127,13 +147,18 @@ evidence and scoring (backend), and `package.json`/script/package-manager
 handling (frontend) - they now just delegate the one framework-specific
 question ("where is this framework's own marker?") to the injected detection
 capability instead of knowing `manage.py`/`vite.config.*` themselves.
-**Filename markers are evidence used by the current Django/Vite
-implementations, not the universal framework-detection abstraction** - a
-future framework whose evidence is a dependency name inside
-`pyproject.toml`/`requirements.txt` rather than a single marker file (FastAPI,
-say) implements the exact same `detect()`/`findFrameworkConfigPath()`
-contract with a completely different internal strategy, no change to
-`backendDetector.ts`/`frontendDetector.ts` required.
+**Filename markers are evidence used by the Django/Vite implementations, not
+the universal framework-detection abstraction** - `adapters/fastApiBackendDetection.ts`
+is the proof: its evidence is a dependency name inside
+`pyproject.toml`/`requirements.txt` *combined with* an application marker
+(`"FastAPI("`) inside a bounded, documented set of entry-point candidates
+(`main.py`, `app/main.py`), not a single marker file, and it implements the
+exact same `BackendFrameworkDetection` contract with a completely different
+internal strategy - no change to `backendDetector.ts` was required. Detection
+deliberately stays evidence-based rather than scored: `main.py` alone is
+never sufficient, since a bare script with that name proves nothing about
+FastAPI; only the combination of dependency evidence and application
+evidence, both independently checked facts, qualifies a candidate.
 
 Runtime detection (Python interpreter/venv, Node package manager) stays
 entirely separate and unchanged (`detection/pythonDetector.ts`,
@@ -150,11 +175,18 @@ result into the legacy field when building the final `BackendProject`/
 `FrontendProject`. The project model built from their results is generalized
 separately - see "Project model" below.
 
-There is intentionally no detection registry or scoring engine here either -
-exactly two real frameworks exist, wired directly at the composition root
-(`extension.ts` passes `djangoBackendDetection`/`viteFrontendDetection` into
-`detection/projectDetector.ts`'s `detectProject()`), and detection stays
-fully deterministic.
+There is intentionally no detection registry or scoring engine here either.
+`detection/projectDetector.ts`'s `detectProject()` takes an ordered
+`readonly BackendFrameworkDetection[]` (wired at the composition root,
+`extension.ts`, as `[djangoBackendDetection, fastApiBackendDetection]`) and
+tries each in order, stopping at the first one that returns a non-empty
+result - first-match-wins, not a scored comparison. Django is registered
+first specifically so a workspace that (unusually) satisfies both Django's
+and FastAPI's evidence still resolves to Django, never a redesign of Django's
+own detection to "compete" with a later framework. Frontend detection is
+unchanged (`viteFrontendDetection` alone) - only backend framework detection
+needed to become a list, since only backend has a second implementation
+today.
 
 ## Project model
 
@@ -176,13 +208,17 @@ with a narrow, real reason to exist:
   `NodeRuntimeReference` carrying the package manager, `package.json` path,
   and scripts). What executes the service.
 - **Framework** - `DetectedService.frameworkId` (a `FrameworkAdapterId`,
-  e.g. `"django"`/`"vite"`) plus, only where a framework actually has
-  structured facts worth carrying, `DetectedService.frameworkMetadata`
-  (currently just `DjangoServiceMetadata`: `managePyPath` + `apps`). No
-  `ViteServiceMetadata` exists - nothing outside `frontendDetector.ts`'s own
-  scoring ever consumed `viteConfigPath` after detection, so it was not
-  carried into the generalized model at all (code truth decided this, not a
-  symmetry assumption).
+  e.g. `"django"`/`"fastapi"`/`"vite"`) plus, only where a framework actually
+  has structured facts worth carrying, `DetectedService.frameworkMetadata`:
+  `DjangoServiceMetadata` (`managePyPath` + `apps`) or `FastApiServiceMetadata`
+  (`appImport`, uvicorn's `module:attr` reference, e.g. `"app.main:app"`).
+  Both back the **same** `"backend"` `ServiceId` - proof that a `ServiceId`
+  and a `FrameworkAdapterId` really are independent axes, not that every
+  service gets its own id per framework. No `ViteServiceMetadata` exists -
+  nothing outside `frontendDetector.ts`'s own scoring ever consumed
+  `viteConfigPath` after detection, so it was not carried into the
+  generalized model at all (code truth decided this, not a symmetry
+  assumption).
 
 **`ServiceId` and `FrameworkAdapterId` stay separate here too**: a service's
 id is never compared against or derived from its `frameworkId`. **A
@@ -196,15 +232,21 @@ exactly one Python or one Node service exists.
 register with any id), so it can never give TypeScript a closed, checkable
 discriminant the way a small, explicit union's own tag can. Reading
 Django-specific facts safely goes through `getDjangoMetadata(service)`
-(narrows on `frameworkMetadata.kind === "django"`), never a cast on
-`frameworkMetadata` directly; `getDjangoBackendProject(service)`
-additionally reconstructs the legacy `BackendProject` shape
-`BackendFrameworkAdapter`/`djangoBackendAdapter` methods still take, so
-Django command/plan code has one type-safe entry point instead of building
-that shape inline at every call site. Adding a framework whose services
-carry their own structured facts (FastAPI's app-module path, say) means
-adding one more variant to `FrameworkMetadata` and one more `getXMetadata()`
-helper - not redesigning `DetectedService` or `DetectedProject`.
+(narrows on `frameworkMetadata.kind === "django"`), and FastAPI's the same
+way through `getFastApiMetadata(service)` (narrows on
+`frameworkMetadata.kind === "fastapi"`) - never a cast on `frameworkMetadata`
+directly. `getDjangoBackendProject(service)` additionally reconstructs the
+legacy `BackendProject` shape Django's own nine operation methods still take,
+so Django command/plan code has one type-safe entry point instead of building
+that shape inline at every call site; it returns `undefined` for a
+FastAPI-detected backend exactly like a missing one, which is how Django-only
+commands (Migrate, Django Shell, ...) safely refuse to run - no process
+spawn, no fabricated `manage.py` path - against a backend that was actually
+detected as FastAPI. Adding FastAPI's structured fact (its app-module path)
+required exactly one more variant on `FrameworkMetadata` and one more
+`getXMetadata()` helper, confirming the design intent this paragraph
+described before FastAPI existed: not redesigning `DetectedService` or
+`DetectedProject`.
 
 `DetectedProject.pythonRuntime` is a deliberate, documented exception to
 "only on the service that needs it": existing UI (the tree's Environment

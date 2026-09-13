@@ -53,6 +53,27 @@ function python(): PythonEnvironment {
   return { executablePath: "/workspace/backend/.venv/bin/python", source: "venv", validation: "exists" };
 }
 
+/** A backend detected as FastAPI, not Django - used to prove Django-only operations safely refuse rather than guessing a manage.py shape. */
+function fastApiDetectedProject(): DetectedProject {
+  const pythonDetection = { selected: python(), candidates: [python()], diagnostics: [] };
+  return {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: BACKEND_SERVICE_ID,
+        rootPath: "/workspace",
+        frameworkId: "fastapi",
+        runtime: { kind: "python", detection: pythonDetection },
+        frameworkMetadata: { kind: "fastapi", appImport: "main:app" },
+        score: 80,
+        evidence: ["main.py"]
+      }
+    ],
+    pythonRuntime: pythonDetection,
+    diagnostics: []
+  };
+}
+
 for (const [name, planFn, expectedArgSuffix] of [
   ["planMakeMigrations", planMakeMigrations, ["makemigrations"]],
   ["planMigrate", planMigrate, ["migrate"]],
@@ -73,6 +94,11 @@ for (const [name, planFn, expectedArgSuffix] of [
     if (plan.kind === "ready") {
       assert.deepEqual(plan.command.args, ["/workspace/backend/manage.py", ...expectedArgSuffix]);
     }
+  });
+
+  void test(`${name} reports no-backend (never spawns a process) when the detected backend is FastAPI, not Django`, () => {
+    const plan = planFn(fastApiDetectedProject(), djangoBackendAdapter);
+    assert.equal(plan.kind, "no-backend");
   });
 }
 
@@ -159,4 +185,14 @@ void test("planManagementCommand runs whatever arguments were given, verbatim", 
   if (plan.kind === "ready") {
     assert.deepEqual(plan.command.args, ["/workspace/backend/manage.py", "makemessages", "-l", "de"]);
   }
+});
+
+void test("planManagementCommand reports no-backend (never spawns a process) when the detected backend is FastAPI, not Django", () => {
+  const plan = planManagementCommand(fastApiDetectedProject(), ["migrate"], djangoBackendAdapter);
+  assert.equal(plan.kind, "no-backend");
+});
+
+void test("planCreateApp reports no-backend (never spawns a process) when the detected backend is FastAPI, not Django", () => {
+  const plan = planCreateApp(fastApiDetectedProject(), "billing", djangoBackendAdapter);
+  assert.equal(plan.kind, "no-backend");
 });

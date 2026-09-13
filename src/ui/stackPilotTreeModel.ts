@@ -5,7 +5,8 @@ import {
   getDjangoMetadata,
   getFrontendService,
   getNodeRuntime,
-  type DetectedProject
+  type DetectedProject,
+  type DetectedService
 } from "../detection/detectedProject";
 import type { PackageManagerDetection } from "../detection/packageManagerDetector";
 import type { ManagedProcessDescriptor } from "../execution/processManager";
@@ -89,37 +90,54 @@ function buildBackendSection(input: TreeModelInput): TreeNode {
     tooltip: input.backend.lastError,
     contextValue: `backendServer.${input.backend.state}`,
     icon: serverStateIcon(input.backend.state),
-    children: [
-      { id: "backend.makeMigrations", label: "Make Migrations", commandId: COMMAND_MAKE_MIGRATIONS, icon: { id: "diff-added" } },
-      { id: "backend.migrate", label: "Migrate", commandId: COMMAND_MIGRATE, icon: { id: "arrow-up" } },
-      { id: "backend.showMigrations", label: "Show Migrations", commandId: COMMAND_SHOW_MIGRATIONS, icon: { id: "list-tree" } },
-      { id: "backend.shell", label: "Django Shell", commandId: COMMAND_OPEN_DJANGO_SHELL, icon: { id: "terminal" } },
-      { id: "backend.dbShell", label: "Database Shell", commandId: COMMAND_OPEN_DB_SHELL, icon: { id: "database" } },
-      { id: "backend.superuser", label: "Superuser", commandId: COMMAND_CREATE_SUPERUSER, icon: { id: "person-add" } },
-      { id: "backend.createApp", label: "Create App", commandId: COMMAND_CREATE_DJANGO_APP, icon: { id: "new-folder" } },
-      ...buildDjangoAppsSection(getDjangoMetadata(backend)?.apps ?? []),
-      { id: "backend.test", label: "Tests", commandId: COMMAND_RUN_DJANGO_TESTS, icon: { id: "beaker" } },
-      {
-        id: "backend.installDependencies",
-        label: "Install Dependencies",
-        commandId: COMMAND_INSTALL_PYTHON_DEPENDENCIES,
-        icon: { id: "package" }
-      },
-      {
-        id: "backend.envFile",
-        label: "Environment Variables (.env)",
-        tooltip: "Opens backend/.env, creating it from a .env.example/.env.sample/.env.template if one exists and .env does not yet.",
-        commandId: COMMAND_OPEN_BACKEND_ENV_FILE,
-        icon: { id: "key" }
-      },
-      {
-        id: "backend.runManagementCommand",
-        label: "Run Management Command…",
-        commandId: COMMAND_RUN_MANAGEMENT_COMMAND,
-        icon: { id: "run" }
-      }
-    ]
+    children: buildBackendOperationRows(backend)
   };
+}
+
+/**
+ * These operation rows (migrations, shell, superuser, ...) are all
+ * manage.py-shaped Django operations - showing them for a detected backend
+ * whose framework is not actually Django (e.g. FastAPI) would be
+ * objectively false ("Django Shell" for a project with no Django at all).
+ * Omitted entirely, rather than shown-but-erroring, for any non-Django
+ * backend - this phase adds no FastAPI-specific operation rows.
+ */
+function buildBackendOperationRows(backend: DetectedService): TreeNode[] | undefined {
+  const djangoMetadata = getDjangoMetadata(backend);
+  if (djangoMetadata === undefined) {
+    return undefined;
+  }
+
+  return [
+    { id: "backend.makeMigrations", label: "Make Migrations", commandId: COMMAND_MAKE_MIGRATIONS, icon: { id: "diff-added" } },
+    { id: "backend.migrate", label: "Migrate", commandId: COMMAND_MIGRATE, icon: { id: "arrow-up" } },
+    { id: "backend.showMigrations", label: "Show Migrations", commandId: COMMAND_SHOW_MIGRATIONS, icon: { id: "list-tree" } },
+    { id: "backend.shell", label: "Django Shell", commandId: COMMAND_OPEN_DJANGO_SHELL, icon: { id: "terminal" } },
+    { id: "backend.dbShell", label: "Database Shell", commandId: COMMAND_OPEN_DB_SHELL, icon: { id: "database" } },
+    { id: "backend.superuser", label: "Superuser", commandId: COMMAND_CREATE_SUPERUSER, icon: { id: "person-add" } },
+    { id: "backend.createApp", label: "Create App", commandId: COMMAND_CREATE_DJANGO_APP, icon: { id: "new-folder" } },
+    ...buildDjangoAppsSection(djangoMetadata.apps),
+    { id: "backend.test", label: "Tests", commandId: COMMAND_RUN_DJANGO_TESTS, icon: { id: "beaker" } },
+    {
+      id: "backend.installDependencies",
+      label: "Install Dependencies",
+      commandId: COMMAND_INSTALL_PYTHON_DEPENDENCIES,
+      icon: { id: "package" }
+    },
+    {
+      id: "backend.envFile",
+      label: "Environment Variables (.env)",
+      tooltip: "Opens backend/.env, creating it from a .env.example/.env.sample/.env.template if one exists and .env does not yet.",
+      commandId: COMMAND_OPEN_BACKEND_ENV_FILE,
+      icon: { id: "key" }
+    },
+    {
+      id: "backend.runManagementCommand",
+      label: "Run Management Command…",
+      commandId: COMMAND_RUN_MANAGEMENT_COMMAND,
+      icon: { id: "run" }
+    }
+  ];
 }
 
 /**

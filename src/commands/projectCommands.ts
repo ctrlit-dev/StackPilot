@@ -43,7 +43,7 @@ export async function startAll(context: CommandContext): Promise<void> {
     return;
   }
 
-  const backendPlan = planBackendStart(state.detectedProject, state.configuration, context.backendAdapter);
+  const backendPlan = planBackendStart(state.detectedProject, state.configuration, context.backendStartAdapters);
   const frontendPlan = planFrontendStart(state.detectedProject, state.configuration);
 
   const optionsByKind: Partial<Record<ManagedProcessKind, StartProcessOptions>> = {};
@@ -55,7 +55,7 @@ export async function startAll(context: CommandContext): Promise<void> {
   }
 
   if (optionsByKind.backend === undefined && optionsByKind.frontend === undefined) {
-    showActionableError(context.outputChannel, "Start All found nothing to start: no Django backend or Vite frontend is ready.");
+    showActionableError(context.outputChannel, "Start All found nothing to start: no backend or frontend is ready.");
     return;
   }
 

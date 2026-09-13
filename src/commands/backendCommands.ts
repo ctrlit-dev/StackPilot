@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import { COMMAND_OPEN_SETTINGS, COMMAND_START_BACKEND, COMMAND_STOP_BACKEND } from "../constants";
-import { getBackendService, getDjangoBackendProject, getPythonEnvironment } from "../detection/detectedProject";
+import { getBackendService, getPythonEnvironment } from "../detection/detectedProject";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
 import { offerToOpenInBrowser } from "./openInBrowserOffer";
 import { nextPortSuggestion } from "./portConflict";
-import { planBackendStart } from "./startPlans";
+import { planBackendStart, resolveBackendStartAdapter } from "./startPlans";
 
 export function registerBackendCommands(context: CommandContext): vscode.Disposable[] {
   return [
@@ -17,20 +17,24 @@ export function registerBackendCommands(context: CommandContext): vscode.Disposa
 export async function startBackend(context: CommandContext): Promise<void> {
   const state = context.projectState.getState();
   if (state.selection.kind !== "selected" || state.configuration === undefined) {
-    void vscode.window.showWarningMessage("StackPilot: select a workspace folder before starting the Django server.");
+    void vscode.window.showWarningMessage("StackPilot: select a workspace folder before starting the backend server.");
     return;
   }
-  if (!(await context.workspaceTrust.ensureTrustedForExecution("Starting the Django server"))) {
+  if (!(await context.workspaceTrust.ensureTrustedForExecution("Starting the backend server"))) {
     return;
   }
 
-  const plan = planBackendStart(state.detectedProject, state.configuration, context.backendAdapter);
+  const plan = planBackendStart(state.detectedProject, state.configuration, context.backendStartAdapters);
   if (plan.kind === "no-backend") {
-    showActionableError(context.outputChannel, "Django could not be started because no Django project was detected.");
+    showActionableError(context.outputChannel, "The backend could not be started because no backend project was detected.");
+    return;
+  }
+  if (plan.kind === "unsupported-framework") {
+    showActionableError(context.outputChannel, "The backend could not be started because its framework is not supported yet.");
     return;
   }
   if (plan.kind === "no-python") {
-    showActionableError(context.outputChannel, "Django could not be started because no Python interpreter was found.");
+    showActionableError(context.outputChannel, "The backend could not be started because no Python interpreter was found.");
     return;
   }
 
@@ -49,18 +53,18 @@ export async function startBackend(context: CommandContext): Promise<void> {
     }
 
     const backendService = getBackendService(state.detectedProject);
-    const backend = getDjangoBackendProject(backendService);
+    const adapter = resolveBackendStartAdapter(state.detectedProject, context.backendStartAdapters);
     const python = getPythonEnvironment(backendService);
-    if (backend === undefined || python === undefined) {
+    if (backendService === undefined || adapter === undefined || python === undefined) {
       return;
     }
-    command = context.backendAdapter.buildStartCommand(python, backend, state.configuration.backendHost, suggestedPort);
+    command = adapter.buildStartCommand(python, backendService, state.configuration.backendHost, suggestedPort);
   }
 
   context.terminalManager.reveal("backend");
   const result = await context.processManager.start("backend", command);
   if (result.outcome === "spawn-failed") {
-    showActionableError(context.outputChannel, `Django server failed to start: ${result.reason}`);
+    showActionableError(context.outputChannel, `Backend server failed to start: ${result.reason}`);
     return;
   }
   if (result.outcome === "started") {

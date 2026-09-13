@@ -1,4 +1,5 @@
 import type { BackendProject } from "../detection/backendDetector";
+import type { DetectedService } from "../detection/detectedProject";
 import type { PythonEnvironment } from "../detection/pythonDetector";
 import type { InteractiveShellInvocation } from "../execution/interactiveTerminalManager";
 import type { OneShotCommandOptions } from "../execution/oneShotCommand";
@@ -8,14 +9,47 @@ import type { FrameworkAdapterId } from "./frameworkAdapterId";
 export type IdentifierValidationResult = { readonly valid: true } | { readonly valid: false; readonly reason: string };
 
 /**
- * Framework-specific knowledge needed to start and operate a backend dev
- * server, and nothing else - see docs/ARCHITECTURE.md. An adapter only
- * builds structured, typed descriptors (`StartProcessOptions`,
- * `OneShotCommandOptions`, `InteractiveShellInvocation`) or validates a
- * piece of user input that is about to become part of one; it does not spawn
- * processes, check port availability, check Workspace Trust, show terminals
- * or notifications, manage state, read configuration globally, or write
- * files. Those all remain the caller's (command layer's) responsibility.
+ * The one capability every backend framework has: start a dev server.
+ * Deliberately the smallest possible contract - proven necessary, not
+ * speculative, by trying to write a FastAPI adapter against the old,
+ * single, Django-shaped `BackendFrameworkAdapter` and hitting nine methods
+ * (migrate, makemigrations, shell, createsuperuser, ...) that mean nothing
+ * for FastAPI. Forcing a second implementation to stub those out (throwing,
+ * or silently doing nothing) would have been the real architecture smell;
+ * splitting the one universally-needed method out instead is not.
+ *
+ * Takes the whole `DetectedService`, not a framework-shaped project type
+ * like `BackendProject` (Django's `managePyPath` field means nothing to
+ * FastAPI, and vice versa for a future FastAPI-shaped field) - each
+ * concrete adapter reads whatever it needs from `service.frameworkMetadata`
+ * via its own type-safe helper (`getDjangoMetadata`/`getFastApiMetadata`),
+ * not a cast.
+ */
+export interface BackendStartAdapter {
+  readonly id: FrameworkAdapterId;
+
+  buildStartCommand(python: PythonEnvironment, service: DetectedService, host: string, port: number): StartProcessOptions;
+}
+
+/**
+ * Framework-specific knowledge needed to operate a backend dev server
+ * beyond just starting it, and nothing else - see docs/ARCHITECTURE.md. An
+ * adapter only builds structured, typed descriptors (`OneShotCommandOptions`,
+ * `InteractiveShellInvocation`) or validates a piece of user input that is
+ * about to become part of one; it does not spawn processes, check port
+ * availability, check Workspace Trust, show terminals or notifications,
+ * manage state, read configuration globally, or write files. Those all
+ * remain the caller's (command layer's) responsibility.
+ *
+ * Extends `BackendStartAdapter` rather than duplicating `id`/`buildStartCommand` -
+ * every framework that has operations beyond starting can start, but not
+ * every framework that can start necessarily has StackPilot-modeled
+ * operations yet (FastAPI, today - see `adapters/fastApiBackendAdapter.ts`,
+ * which implements only `BackendStartAdapter`). Commands specific to one
+ * operation set (Django's migrate/shell/etc.) are injected with this wider
+ * interface directly, still statically wired to `djangoBackendAdapter` at
+ * the composition root - they are Django-only commands by design, not
+ * expected to work for any backend framework.
  *
  * Deliberately not a single generic "run this operation" method: Django's
  * operations have genuinely different shapes (one-shot vs. interactive vs.
@@ -24,11 +58,7 @@ export type IdentifierValidationResult = { readonly valid: true } | { readonly v
  * the distinction into a runtime check every caller has to repeat. Each
  * method here mirrors a capability a real caller already needs.
  */
-export interface BackendFrameworkAdapter {
-  readonly id: FrameworkAdapterId;
-
-  buildStartCommand(python: PythonEnvironment, backend: BackendProject, host: string, port: number): StartProcessOptions;
-
+export interface BackendFrameworkAdapter extends BackendStartAdapter {
   buildMigrateCommand(python: PythonEnvironment, backend: BackendProject): OneShotCommandOptions;
   buildMakeMigrationsCommand(python: PythonEnvironment, backend: BackendProject): OneShotCommandOptions;
   buildShowMigrationsCommand(python: PythonEnvironment, backend: BackendProject): OneShotCommandOptions;

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { COMMAND_TOGGLE_BACKEND, COMMAND_TOGGLE_FRONTEND } from "../constants";
-import { getBackendService, getFrontendService } from "../detection/detectedProject";
+import { getBackendService, getDjangoMetadata, getFrontendService } from "../detection/detectedProject";
 import type { ManagedProcessDescriptor, ManagedProcessState, ProcessManager } from "../execution/processManager";
 import type { ProjectStateStore } from "../state/projectState";
 import { describeServerState, serverStateIcon } from "./serverStatus";
@@ -23,7 +23,6 @@ export class ServerStatusBarController implements vscode.Disposable {
     private readonly processManager: ProcessManager
   ) {
     this.backendItem = vscode.window.createStatusBarItem("stackPilot.backendStatus", vscode.StatusBarAlignment.Left, 100);
-    this.backendItem.name = "StackPilot: Django Server";
     this.backendItem.command = COMMAND_TOGGLE_BACKEND;
 
     this.frontendItem = vscode.window.createStatusBarItem("stackPilot.frontendStatus", vscode.StatusBarAlignment.Left, 99);
@@ -48,10 +47,13 @@ export class ServerStatusBarController implements vscode.Disposable {
 
   private refresh(): void {
     const state = this.projectState.getState();
+    const backendService = getBackendService(state.detectedProject);
+    const backendLabel = getDjangoMetadata(backendService) !== undefined ? "Django" : "Backend";
+    this.backendItem.name = `StackPilot: ${backendLabel} Server`;
     this.updateItem(
       this.backendItem,
-      "Django",
-      getBackendService(state.detectedProject) !== undefined,
+      backendLabel,
+      backendService !== undefined,
       this.processManager.getState("backend"),
       state.configuration?.backendHost
     );
