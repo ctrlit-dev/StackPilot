@@ -3,19 +3,7 @@ import type { PythonEnvironment } from "../detection/pythonDetector";
 import type { InteractiveShellInvocation } from "../execution/interactiveTerminalManager";
 import type { OneShotCommandOptions } from "../execution/oneShotCommand";
 import type { StartProcessOptions } from "../execution/processManager";
-
-/**
- * Identifies a backend framework implementation (e.g. "django") - never a
- * `ServiceId`. A `ServiceId` ("backend", "api", "worker", ...) names a
- * *running process slot* `ProcessManager` tracks; a `FrameworkAdapterId`
- * names *which framework's rules* built that process's start command. A
- * service's id is chosen independently of which adapter builds its command -
- * two services could someday use the same framework adapter ("api" and
- * "admin" both Django), or a service id could be renamed without the
- * framework changing. These two ids must never be compared, unioned, or used
- * interchangeably.
- */
-export type FrameworkAdapterId = string;
+import type { FrameworkAdapterId } from "./frameworkAdapterId";
 
 export type IdentifierValidationResult = { readonly valid: true } | { readonly valid: false; readonly reason: string };
 

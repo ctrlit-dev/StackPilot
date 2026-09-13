@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { djangoBackendAdapter } from "./adapters/djangoBackendAdapter";
+import { viteFrontendAdapter } from "./adapters/viteFrontendAdapter";
 import { registerCommands } from "./commands/registerCommands";
 import { readStackPilotConfiguration } from "./config/configuration";
 import {
@@ -47,7 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const processManager = new ProcessManager(spawner, DEFAULT_SERVICE_REGISTRY);
   const portChecker = new NodePortChecker();
   const terminalManager = new ServerTerminalManager(processManager);
-  const frontendUrlTracker = new FrontendUrlTracker();
+  const frontendUrlTracker = new FrontendUrlTracker(viteFrontendAdapter);
   const operationTerminal = new OperationTerminal();
   const interactiveTerminals = new InteractiveTerminalManager();
   const projectState = new ProjectStateStore();
