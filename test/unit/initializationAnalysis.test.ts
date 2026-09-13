@@ -18,7 +18,7 @@ import { InMemoryFileSystemProbe } from "./fakes/inMemoryFileSystem";
 const workspaceRoot = path.resolve("pc-test-fixtures", "initialization");
 
 function backend(evidence: readonly string[]): BackendProject {
-  return { rootPath: path.join(workspaceRoot, "backend"), managePyPath: path.join(workspaceRoot, "backend", "manage.py"), score: 80, evidence };
+  return { rootPath: path.join(workspaceRoot, "backend"), frameworkEntryPath: path.join(workspaceRoot, "backend", "manage.py"), score: 80, evidence };
 }
 
 function frontend(): FrontendProject {
@@ -64,7 +64,7 @@ function detectedProject(
       runtime: { kind: "python", detection: pythonDetection },
       frameworkMetadata:
         framework === "django"
-          ? { kind: "django", managePyPath: overrides.backend.managePyPath, apps: [] }
+          ? { kind: "django", managePyPath: overrides.backend.frameworkEntryPath, apps: [] }
           : { kind: "fastapi", appImport: "main:app" },
       score: overrides.backend.score,
       evidence: overrides.backend.evidence

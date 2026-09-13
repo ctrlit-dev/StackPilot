@@ -14,7 +14,7 @@ import { validateDjangoAppName } from "./djangoIdentifierValidation";
 function buildManagePyCommand(python: PythonEnvironment, backend: BackendProject, args: readonly string[]): OneShotCommandOptions {
   return {
     executable: python.executablePath,
-    args: [backend.managePyPath, ...args],
+    args: [backend.frameworkEntryPath, ...args],
     cwd: backend.rootPath
   };
 }
@@ -86,14 +86,14 @@ export const djangoBackendAdapter: BackendFrameworkAdapter = {
    * `InteractiveShellInvocation`, not `OneShotCommandOptions`.
    */
   buildShellInvocation(python, backend) {
-    return { shellPath: python.executablePath, shellArgs: [backend.managePyPath, "shell"], cwd: backend.rootPath };
+    return { shellPath: python.executablePath, shellArgs: [backend.frameworkEntryPath, "shell"], cwd: backend.rootPath };
   },
 
   buildDatabaseShellInvocation(python, backend) {
-    return { shellPath: python.executablePath, shellArgs: [backend.managePyPath, "dbshell"], cwd: backend.rootPath };
+    return { shellPath: python.executablePath, shellArgs: [backend.frameworkEntryPath, "dbshell"], cwd: backend.rootPath };
   },
 
   buildCreateSuperuserInvocation(python, backend) {
-    return { shellPath: python.executablePath, shellArgs: [backend.managePyPath, "createsuperuser"], cwd: backend.rootPath };
+    return { shellPath: python.executablePath, shellArgs: [backend.frameworkEntryPath, "createsuperuser"], cwd: backend.rootPath };
   }
 };

@@ -167,13 +167,18 @@ project", never "which framework is this".
 
 The project model stays intentionally legacy-shaped for now:
 `DetectedProject`/`BackendProject`/`FrontendProject` are unchanged, and
-`BackendProject.managePyPath`/`FrontendProject.viteConfigPath` keep their
-Django/Vite-specific field names - the detection capabilities' own result
-types use framework-neutral names (`frameworkEntryPath`), and
-`detection/backendDetector.ts`/`detection/frontendDetector.ts` map that
-result into the legacy field when building the final `BackendProject`/
-`FrontendProject`. The project model built from their results is generalized
-separately - see "Project model" below.
+`FrontendProject.viteConfigPath` keeps its Vite-specific field name - Vite is
+still the only frontend framework this codebase detects, so nothing yet
+forces that field neutral. `BackendProject.frameworkEntryPath` uses the same
+framework-neutral name the detection capabilities' own result types already
+used (`BackendFrameworkEntryPointCandidate.frameworkEntryPath`) -
+`detection/backendDetector.ts` carries that name straight through when
+building the final `BackendProject`, rather than renaming it to something
+Django-specific along the way, since `BackendProject` is genuinely
+constructed for both Django and FastAPI candidates during detection (unlike
+`FrontendProject`, which today only ever describes a Vite one). The project
+model built from their results is generalized separately - see "Project
+model" below.
 
 There is intentionally no detection registry or scoring engine here either.
 `detection/projectDetector.ts`'s `detectProject()` takes an ordered

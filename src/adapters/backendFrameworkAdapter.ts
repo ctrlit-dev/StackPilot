@@ -19,11 +19,11 @@ export type IdentifierValidationResult = { readonly valid: true } | { readonly v
  * splitting the one universally-needed method out instead is not.
  *
  * Takes the whole `DetectedService`, not a framework-shaped project type
- * like `BackendProject` (Django's `managePyPath` field means nothing to
- * FastAPI, and vice versa for a future FastAPI-shaped field) - each
- * concrete adapter reads whatever it needs from `service.frameworkMetadata`
- * via its own type-safe helper (`getDjangoMetadata`/`getFastApiMetadata`),
- * not a cast.
+ * like `BackendProject` (a detection-internal DTO that only ever carries a
+ * generic entry path - never Django's app list, FastAPI's own structured
+ * facts, or a future framework's) - each concrete adapter reads whatever it
+ * needs from `service.frameworkMetadata` via its own type-safe helper
+ * (`getDjangoMetadata`/`getFastApiMetadata`), not a cast.
  */
 export interface BackendStartAdapter {
   readonly id: FrameworkAdapterId;

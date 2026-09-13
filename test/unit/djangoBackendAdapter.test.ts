@@ -11,7 +11,7 @@ function python(): PythonEnvironment {
 }
 
 function backend(): BackendProject {
-  return { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] };
+  return { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] };
 }
 
 function backendService(): DetectedService {

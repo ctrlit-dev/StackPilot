@@ -155,7 +155,7 @@ void test("getDjangoBackendProject reconstructs the legacy BackendProject shape 
 
   assert.deepEqual(backend, {
     rootPath: "/workspace/backend",
-    managePyPath: "/workspace/backend/manage.py",
+    frameworkEntryPath: "/workspace/backend/manage.py",
     score: 80,
     evidence: ["manage.py"]
   });

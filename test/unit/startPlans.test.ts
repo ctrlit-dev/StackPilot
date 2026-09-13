@@ -28,7 +28,7 @@ function detectedProject(overrides: LegacyDetectionOverrides = {}): DetectedProj
       rootPath: backend.rootPath,
       frameworkId: "django",
       runtime: { kind: "python", detection: pythonDetection },
-      frameworkMetadata: { kind: "django", managePyPath: backend.managePyPath, apps: [] },
+      frameworkMetadata: { kind: "django", managePyPath: backend.frameworkEntryPath, apps: [] },
       score: backend.score,
       evidence: backend.evidence
     });
@@ -73,7 +73,7 @@ void test("planBackendStart reports no-python when a backend is detected but no 
   const plan = planBackendStart(
     detectedProject({
       backend: {
-        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
         candidates: [],
         diagnostics: []
       }
@@ -88,7 +88,7 @@ void test("planBackendStart builds the runserver command when everything is dete
   const plan = planBackendStart(
     detectedProject({
       backend: {
-        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
         candidates: [],
         diagnostics: []
       },
@@ -122,7 +122,7 @@ void test("planBackendStart delegates the actual command shape to the injected a
   const plan = planBackendStart(
     detectedProject({
       backend: {
-        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
         candidates: [],
         diagnostics: []
       },
@@ -146,7 +146,7 @@ void test("planBackendStart reports unsupported-framework when the detected fram
   const plan = planBackendStart(
     detectedProject({
       backend: {
-        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
         candidates: [],
         diagnostics: []
       }

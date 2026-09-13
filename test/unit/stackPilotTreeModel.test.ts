@@ -45,7 +45,7 @@ function detectedProject(overrides: {
       rootPath: overrides.backend.rootPath,
       frameworkId: "django",
       runtime: { kind: "python", detection: pythonDetection },
-      frameworkMetadata: { kind: "django", managePyPath: overrides.backend.managePyPath, apps: overrides.djangoApps ?? [] },
+      frameworkMetadata: { kind: "django", managePyPath: overrides.backend.frameworkEntryPath, apps: overrides.djangoApps ?? [] },
       score: overrides.backend.score,
       evidence: overrides.backend.evidence
     });
@@ -74,7 +74,7 @@ function detectedProject(overrides: {
 }
 
 function backendProject(): BackendProject {
-  return { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] };
+  return { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] };
 }
 
 function frontendProject(packageManager: PackageManagerDetection, scripts: Record<string, string> = { dev: "vite" }): FrontendProject {
