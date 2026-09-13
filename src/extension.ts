@@ -19,6 +19,11 @@ import {
 import { getBackendService, getFrontendService } from "./detection/detectedProject";
 import { NodeFileSystemProbe } from "./detection/nodeFileSystem";
 import { detectProject } from "./detection/projectDetector";
+import { createDjangoMigrationsCheck } from "./diagnostics/checks/djangoMigrationsCheck";
+import { frameworkDependencyCheck } from "./diagnostics/checks/frameworkDependencyCheck";
+import { nodeDependenciesCheck } from "./diagnostics/checks/nodeDependenciesCheck";
+import { pythonEnvironmentCheck } from "./diagnostics/checks/pythonEnvironmentCheck";
+import { DiagnosticsController } from "./diagnostics/diagnosticsController";
 import { RatingPromptController } from "./engagement/ratingPromptController";
 import { AutoRestartController } from "./execution/autoRestartController";
 import { CrashNotificationController } from "./execution/crashNotificationController";
@@ -99,6 +104,17 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const migrationStatusController = new MigrationStatusController(spawner, projectState, djangoBackendAdapter);
+
+  // No UI consumes this yet (DIAGNOSTICS-1B) - getResults()/onDidChangeDiagnostics()
+  // are read by a later package. Refreshes only on events that can actually change
+  // a 1B result; deliberately not subscribed to processManager.onDidChangeState.
+  const diagnosticsController = new DiagnosticsController(
+    [pythonEnvironmentCheck, frameworkDependencyCheck, nodeDependenciesCheck, createDjangoMigrationsCheck(migrationStatusController)],
+    projectState,
+    fileSystem,
+    migrationStatusController,
+    (message) => outputChannel.appendLine(`[Diagnostics] ${message}`)
+  );
 
   const treeProvider = new StackPilotTreeProvider(projectState, processManager);
   const treeView = vscode.window.createTreeView(VIEW_ID, { treeDataProvider: treeProvider });
@@ -191,6 +207,7 @@ export function activate(context: vscode.ExtensionContext): void {
     openDevToolsCommand,
     dashboardSerializer,
     migrationStatusController,
+    diagnosticsController,
     autoRestartController,
     crashNotificationController,
     ratingPromptController,
