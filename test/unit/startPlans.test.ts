@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { djangoBackendAdapter } from "../../src/adapters/djangoBackendAdapter";
+import { fastApiBackendAdapter } from "../../src/adapters/fastApiBackendAdapter";
 import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
 import type { BackendProject } from "../../src/detection/backendDetector";
 import type { DetectedProject, DetectedService } from "../../src/detection/detectedProject";
 import type { FrontendProject } from "../../src/detection/frontendDetector";
 import type { PythonEnvironment } from "../../src/detection/pythonDetector";
-import { planBackendStart, planFrontendStart } from "../../src/commands/startPlans";
+import { planBackendStart, planFrontendStart, resolveBackendStartAdapter } from "../../src/commands/startPlans";
 
 interface LegacyDetectionOverrides {
   readonly backend?: { readonly selected?: BackendProject; readonly candidates?: readonly BackendProject[]; readonly diagnostics?: readonly string[] };
@@ -59,12 +60,12 @@ function detectedProject(overrides: LegacyDetectionOverrides = {}): DetectedProj
 }
 
 void test("planBackendStart reports no-backend when nothing was detected", () => {
-  const plan = planBackendStart(detectedProject(), DEFAULT_CONFIGURATION, djangoBackendAdapter);
+  const plan = planBackendStart(detectedProject(), DEFAULT_CONFIGURATION, [djangoBackendAdapter]);
   assert.equal(plan.kind, "no-backend");
 });
 
 void test("planBackendStart reports no-backend when detection has not run yet", () => {
-  const plan = planBackendStart(undefined, DEFAULT_CONFIGURATION, djangoBackendAdapter);
+  const plan = planBackendStart(undefined, DEFAULT_CONFIGURATION, [djangoBackendAdapter]);
   assert.equal(plan.kind, "no-backend");
 });
 
@@ -78,7 +79,7 @@ void test("planBackendStart reports no-python when a backend is detected but no 
       }
     }),
     DEFAULT_CONFIGURATION,
-    djangoBackendAdapter
+    [djangoBackendAdapter]
   );
   assert.equal(plan.kind, "no-python");
 });
@@ -98,7 +99,7 @@ void test("planBackendStart builds the runserver command when everything is dete
       }
     }),
     { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 8000 },
-    djangoBackendAdapter
+    [djangoBackendAdapter]
   );
 
   assert.equal(plan.kind, "ready");
@@ -114,7 +115,7 @@ void test("planBackendStart delegates the actual command shape to the injected a
   // be reflected verbatim in the resulting plan.
   const fakeAdapter = {
     ...djangoBackendAdapter,
-    id: "fake-framework",
+    id: "django",
     buildStartCommand: () => ({ executable: "fake-executable", args: ["fake-arg"], cwd: "/fake/cwd", expectedPort: 1234 })
   };
 
@@ -132,13 +133,89 @@ void test("planBackendStart delegates the actual command shape to the injected a
       }
     }),
     DEFAULT_CONFIGURATION,
-    fakeAdapter
+    [fakeAdapter]
   );
 
   assert.equal(plan.kind, "ready");
   if (plan.kind === "ready") {
     assert.deepEqual(plan.command, { executable: "fake-executable", args: ["fake-arg"], cwd: "/fake/cwd", expectedPort: 1234 });
   }
+});
+
+void test("planBackendStart reports unsupported-framework when the detected framework has no registered start adapter", () => {
+  const plan = planBackendStart(
+    detectedProject({
+      backend: {
+        selected: { rootPath: "/workspace/backend", managePyPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        candidates: [],
+        diagnostics: []
+      }
+    }),
+    DEFAULT_CONFIGURATION,
+    []
+  );
+  assert.equal(plan.kind, "unsupported-framework");
+});
+
+void test("planBackendStart resolves the FastAPI start adapter (same ServiceId 'backend', different FrameworkAdapterId) and builds a uvicorn command", () => {
+  const project: DetectedProject = {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: "backend",
+        rootPath: "/workspace",
+        frameworkId: "fastapi",
+        runtime: {
+          kind: "python",
+          detection: {
+            selected: { executablePath: "/workspace/.venv/bin/python", source: "venv", validation: "exists" },
+            candidates: [],
+            diagnostics: []
+          }
+        },
+        frameworkMetadata: { kind: "fastapi", appImport: "app.main:app" },
+        score: 80,
+        evidence: ["main.py"]
+      }
+    ],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const plan = planBackendStart(project, { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 8000 }, [
+    djangoBackendAdapter,
+    fastApiBackendAdapter
+  ]);
+
+  assert.equal(plan.kind, "ready");
+  if (plan.kind === "ready") {
+    assert.equal(plan.command.executable, "/workspace/.venv/bin/python");
+    assert.deepEqual(plan.command.args, ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"]);
+    assert.equal(plan.command.cwd, "/workspace");
+    assert.equal(plan.command.expectedPort, 8000);
+  }
+});
+
+void test("resolveBackendStartAdapter picks the adapter matching the detected service's frameworkId, not the runtime or ServiceId", () => {
+  const project: DetectedProject = {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: "backend",
+        rootPath: "/workspace",
+        frameworkId: "fastapi",
+        runtime: { kind: "python", detection: { selected: undefined, candidates: [], diagnostics: [] } },
+        frameworkMetadata: { kind: "fastapi", appImport: "main:app" },
+        score: 80,
+        evidence: ["main.py"]
+      }
+    ],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const adapter = resolveBackendStartAdapter(project, [djangoBackendAdapter, fastApiBackendAdapter]);
+  assert.equal(adapter?.id, "fastapi");
 });
 
 void test("planFrontendStart reports no-frontend when nothing was detected", () => {

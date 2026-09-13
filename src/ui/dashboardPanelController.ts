@@ -406,7 +406,10 @@ export class DashboardPanelController implements vscode.Disposable {
     }
 
     const tileGroups: string[] = [];
-    if (backend !== undefined) {
+    if (getDjangoMetadata(backend) !== undefined) {
+      // BACKEND_TILES (Make Migrations, Django Shell, ...) are all Django-only
+      // operations - showing them for a detected but non-Django backend (e.g.
+      // FastAPI) would be objectively false, not merely incomplete.
       tileGroups.push(tileGroup("Backend", "charts.green", BACKEND_TILES));
     }
     if (frontendRuntime !== undefined && frontendRuntime.packageManager.kind === "detected") {

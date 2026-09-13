@@ -202,6 +202,29 @@ void test("omits backend operation rows when no backend is detected", () => {
   assert.equal(backend?.children, undefined);
 });
 
+void test("omits all Django-only backend operation rows when the detected backend is FastAPI, not Django", () => {
+  const project: DetectedProject = {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: "backend",
+        rootPath: "/workspace",
+        frameworkId: "fastapi",
+        runtime: { kind: "python", detection: { selected: undefined, candidates: [], diagnostics: [] } },
+        frameworkMetadata: { kind: "fastapi", appImport: "main:app" },
+        score: 80,
+        evidence: ["main.py"]
+      }
+    ],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const tree = buildStackPilotTree(baseInput({ detectedProject: project }));
+  const backend = findNode(tree, "backend");
+  assert.equal(backend?.children, undefined);
+});
+
 void test("shows backend operation rows once a backend is detected", () => {
   const tree = buildStackPilotTree(baseInput({ detectedProject: detectedProject({ backend: backendProject() }) }));
   const backend = findNode(tree, "backend");

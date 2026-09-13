@@ -1,4 +1,6 @@
+import * as path from "node:path";
 import type { BackendProject } from "../detection/backendDetector";
+import { getDjangoMetadata } from "../detection/detectedProject";
 import type { PythonEnvironment } from "../detection/pythonDetector";
 import type { OneShotCommandOptions } from "../execution/oneShotCommand";
 import type { BackendFrameworkAdapter } from "./backendFrameworkAdapter";
@@ -28,11 +30,22 @@ function buildManagePyCommand(python: PythonEnvironment, backend: BackendProject
 export const djangoBackendAdapter: BackendFrameworkAdapter = {
   id: "django",
 
-  buildStartCommand(python, backend, host, port) {
+  /**
+   * Takes the whole `DetectedService` (`BackendStartAdapter`'s contract,
+   * shared with FastAPI's start adapter), not a `BackendProject` directly -
+   * `managePyPath` is read via `getDjangoMetadata()`, with a defensive
+   * `<rootPath>/manage.py` fallback that is structurally unreachable in
+   * practice (this adapter is only ever selected for a service whose
+   * `frameworkId` is `"django"`, which `detection/projectDetector.ts` only
+   * ever sets alongside Django metadata) but keeps this function total
+   * without a non-null assertion.
+   */
+  buildStartCommand(python, service, host, port) {
+    const managePyPath = getDjangoMetadata(service)?.managePyPath ?? path.join(service.rootPath, "manage.py");
     return {
       executable: python.executablePath,
-      args: [backend.managePyPath, "runserver", `${host}:${port}`],
-      cwd: backend.rootPath,
+      args: [managePyPath, "runserver", `${host}:${port}`],
+      cwd: service.rootPath,
       expectedPort: port
     };
   },

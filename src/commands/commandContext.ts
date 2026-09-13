@@ -1,5 +1,5 @@
 import type * as vscode from "vscode";
-import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
+import type { BackendFrameworkAdapter, BackendStartAdapter } from "../adapters/backendFrameworkAdapter";
 import type { FileSystemProbe } from "../detection/fileSystem";
 import type { FrontendUrlTracker } from "../execution/frontendUrlTracker";
 import type { InteractiveTerminalManager } from "../execution/interactiveTerminalManager";
@@ -19,7 +19,10 @@ export interface CommandContext {
   readonly projectFileWriter: ProjectFileWriter;
   readonly projectState: ProjectStateStore;
   readonly processManager: ProcessManager;
+  /** Django-only operations (migrate, shell, ...) - always the concrete Django adapter, unconditionally wired. */
   readonly backendAdapter: BackendFrameworkAdapter;
+  /** Every registered backend framework's start capability, resolved dynamically by the detected service's `frameworkId` - see `commands/startPlans.ts`'s `resolveBackendStartAdapter`. */
+  readonly backendStartAdapters: readonly BackendStartAdapter[];
   readonly spawner: ProcessSpawner;
   readonly portChecker: PortChecker;
   readonly terminalManager: ServerTerminalManager;

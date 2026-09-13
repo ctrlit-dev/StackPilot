@@ -6,6 +6,7 @@ import {
   getBackendService,
   getDjangoBackendProject,
   getDjangoMetadata,
+  getFastApiMetadata,
   getFrontendService,
   getNodeRuntime,
   getPythonEnvironment,
@@ -33,6 +34,26 @@ function djangoService(overrides: Partial<DetectedService> = {}): DetectedServic
     },
     score: 80,
     evidence: ["manage.py"],
+    ...overrides
+  };
+}
+
+function fastApiService(overrides: Partial<DetectedService> = {}): DetectedService {
+  return {
+    id: "backend",
+    rootPath: "/workspace",
+    frameworkId: "fastapi",
+    runtime: {
+      kind: "python",
+      detection: {
+        selected: { executablePath: "/workspace/.venv/bin/python", source: "venv", validation: "exists" },
+        candidates: [],
+        diagnostics: []
+      }
+    },
+    frameworkMetadata: { kind: "fastapi", appImport: "main:app" },
+    score: 80,
+    evidence: ["main.py"],
     ...overrides
   };
 }
@@ -167,6 +188,36 @@ void test("Python runtime is attached to the backend service, correctly reflecti
 
   const python = getPythonEnvironment(getBackendService(detected));
   assert.equal(python?.executablePath, "/workspace/backend/.venv/bin/python");
+});
+
+// --- FastAPI Metadata / framework isolation ---
+
+void test("FastAPI metadata (appImport) is available only on a service whose framework is actually FastAPI", () => {
+  const detected = project([fastApiService()]);
+
+  const fastApiMetadata = getFastApiMetadata(getBackendService(detected));
+  assert.equal(fastApiMetadata?.appImport, "main:app");
+});
+
+void test("a FastAPI-backed service uses the SAME ServiceId 'backend' as Django, proving ServiceId != FrameworkAdapterId", () => {
+  const detected = project([fastApiService()]);
+
+  const backend = getBackendService(detected);
+  assert.equal(backend?.id, "backend");
+  assert.equal(backend?.frameworkId, "fastapi");
+});
+
+void test("Django metadata is undefined on a FastAPI service, and FastAPI metadata is undefined on a Django service", () => {
+  const djangoBackend = getBackendService(project([djangoService()]));
+  const fastApiBackend = getBackendService(project([fastApiService()]));
+
+  assert.equal(getFastApiMetadata(djangoBackend), undefined);
+  assert.equal(getDjangoMetadata(fastApiBackend), undefined);
+});
+
+void test("getDjangoBackendProject returns undefined for a FastAPI-detected backend, never a guessed manage.py shape", () => {
+  const fastApiBackend = getBackendService(project([fastApiService()]));
+  assert.equal(getDjangoBackendProject(fastApiBackend), undefined);
 });
 
 void test("a backend service with no resolved interpreter still carries a python runtime slot, just with no environment", () => {

@@ -20,22 +20,35 @@ export interface DjangoServiceMetadata {
 }
 
 /**
- * A union on purpose, even with one member today: adding a framework whose
- * services carry their own structured facts (a future FastAPI service's
- * app-module path, say) means adding one more variant here, not redesigning
- * this type or `DetectedService`. Discriminated by its own `kind`, not by
- * `FrameworkAdapterId` - `FrameworkAdapterId` is an intentionally open
- * `string` (any adapter can register with any id), so narrowing on it could
- * never give TypeScript a closed, checkable discriminant the way this
- * union's own `kind` field can. `service.frameworkId` and
- * `service.frameworkMetadata?.kind` are expected to agree in practice
- * (detection only ever attaches Django metadata alongside `frameworkId:
- * "django"`), but that agreement is an invariant this codebase's detection
- * code maintains, not something the type system enforces across the two
- * fields - see `getDjangoMetadata()` below, which narrows on `.kind`, never
- * on `frameworkId`.
+ * FastAPI-specific facts about a detected service - proof that
+ * `FrameworkMetadata` was actually designed to grow (see below), not just
+ * documented as if it would. `appImport` is the uvicorn `module:attr`
+ * reference (e.g. `"main:app"`, `"app.main:app"`), already resolved from the
+ * detected entry file's location relative to the service's `rootPath` - see
+ * `adapters/fastApiBackendDetection.ts`'s `deriveFastApiAppImport()`.
  */
-export type FrameworkMetadata = DjangoServiceMetadata;
+export interface FastApiServiceMetadata {
+  readonly kind: "fastapi";
+  readonly appImport: string;
+}
+
+/**
+ * A union that has now genuinely grown by one member (Django → Django |
+ * FastAPI), confirming the original design intent: adding a framework whose
+ * services carry their own structured facts means adding one more variant
+ * here, not redesigning this type or `DetectedService`. Discriminated by its
+ * own `kind`, not by `FrameworkAdapterId` - `FrameworkAdapterId` is an
+ * intentionally open `string` (any adapter can register with any id), so
+ * narrowing on it could never give TypeScript a closed, checkable
+ * discriminant the way this union's own `kind` field can. `service.frameworkId`
+ * and `service.frameworkMetadata?.kind` are expected to agree in practice
+ * (detection only ever attaches a framework's metadata alongside its own
+ * `frameworkId`), but that agreement is an invariant this codebase's
+ * detection code maintains, not something the type system enforces across
+ * the two fields - see `getDjangoMetadata()`/`getFastApiMetadata()` below,
+ * which narrow on `.kind`, never on `frameworkId`.
+ */
+export type FrameworkMetadata = DjangoServiceMetadata | FastApiServiceMetadata;
 
 /** A service's Python interpreter/venv, plus the full detection result (`candidates`/`diagnostics`) a caller like `findBasePython` still needs. */
 export interface PythonRuntimeReference {
@@ -104,6 +117,11 @@ export function getFrontendService(project: DetectedProject | undefined): Detect
 /** Narrows on `frameworkMetadata.kind`, not `frameworkId` - see the `FrameworkMetadata` doc comment above for why. */
 export function getDjangoMetadata(service: DetectedService | undefined): DjangoServiceMetadata | undefined {
   return service?.frameworkMetadata?.kind === "django" ? service.frameworkMetadata : undefined;
+}
+
+/** Same pattern as `getDjangoMetadata()` - narrows on `.kind`, never on `frameworkId`. */
+export function getFastApiMetadata(service: DetectedService | undefined): FastApiServiceMetadata | undefined {
+  return service?.frameworkMetadata?.kind === "fastapi" ? service.frameworkMetadata : undefined;
 }
 
 /**
