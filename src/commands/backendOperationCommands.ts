@@ -137,7 +137,16 @@ export async function installPythonDependencies(context: CommandContext): Promis
   if (!(await context.workspaceTrust.ensureTrustedForExecution("Install Python Dependencies"))) {
     return;
   }
-  await runInstallPythonDependencies(context);
+  // Only on success (DIAGNOSTICS-1B gap): re-detects the project so a
+  // dependency-derived diagnostic (e.g. django.dependency.missing) does not
+  // stay stale after an install this command just performed. Not added
+  // inside runInstallPythonDependencies() itself - the Initialize Project
+  // flow (initializeProjectCommand.ts) already calls COMMAND_REFRESH once
+  // per completed step and calls that shared function directly, so doing it
+  // there too would refresh twice for the same success.
+  if (await runInstallPythonDependencies(context)) {
+    await vscode.commands.executeCommand(COMMAND_REFRESH);
+  }
 }
 
 export async function createDjangoApp(context: CommandContext): Promise<void> {
