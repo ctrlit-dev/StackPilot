@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
+import { getBackendService, getDjangoBackendProject, getPythonEnvironment } from "../detection/detectedProject";
 import type { ProjectStateStore } from "../state/projectState";
 import { runOneShotCommand } from "./oneShotCommand";
 import type { ProcessSpawner } from "./processSpawner";
@@ -51,8 +52,9 @@ export class MigrationStatusController implements vscode.Disposable {
     }
 
     const state = this.projectState.getState();
-    const backend = state.detectedProject?.backend.selected;
-    const python = state.detectedProject?.python.selected;
+    const backendService = getBackendService(state.detectedProject);
+    const backend = getDjangoBackendProject(backendService);
+    const python = getPythonEnvironment(backendService);
     // Passive/automatic, so this only ever runs once the workspace is
     // already trusted - never prompts for trust on its own (spec-consistent
     // with detection itself never prompting).

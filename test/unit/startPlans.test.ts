@@ -3,17 +3,58 @@ import test from "node:test";
 
 import { djangoBackendAdapter } from "../../src/adapters/djangoBackendAdapter";
 import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
-import type { DetectedProject } from "../../src/detection/projectDetector";
+import type { BackendProject } from "../../src/detection/backendDetector";
+import type { DetectedProject, DetectedService } from "../../src/detection/detectedProject";
+import type { FrontendProject } from "../../src/detection/frontendDetector";
+import type { PythonEnvironment } from "../../src/detection/pythonDetector";
 import { planBackendStart, planFrontendStart } from "../../src/commands/startPlans";
 
-function detectedProject(overrides: Partial<DetectedProject> = {}): DetectedProject {
+interface LegacyDetectionOverrides {
+  readonly backend?: { readonly selected?: BackendProject; readonly candidates?: readonly BackendProject[]; readonly diagnostics?: readonly string[] };
+  readonly frontend?: { readonly selected?: FrontendProject; readonly candidates?: readonly FrontendProject[]; readonly diagnostics?: readonly string[] };
+  readonly python?: { readonly selected?: PythonEnvironment; readonly candidates?: readonly PythonEnvironment[]; readonly diagnostics?: readonly string[] };
+}
+
+function detectedProject(overrides: LegacyDetectionOverrides = {}): DetectedProject {
+  const pythonSelected = overrides.python?.selected;
+  const pythonDetection = { selected: pythonSelected, candidates: pythonSelected === undefined ? [] : [pythonSelected], diagnostics: [] };
+  const services: DetectedService[] = [];
+
+  const backend = overrides.backend?.selected;
+  if (backend !== undefined) {
+    services.push({
+      id: "backend",
+      rootPath: backend.rootPath,
+      frameworkId: "django",
+      runtime: { kind: "python", detection: pythonDetection },
+      frameworkMetadata: { kind: "django", managePyPath: backend.managePyPath, apps: [] },
+      score: backend.score,
+      evidence: backend.evidence
+    });
+  }
+
+  const frontend = overrides.frontend?.selected;
+  if (frontend !== undefined) {
+    services.push({
+      id: "frontend",
+      rootPath: frontend.rootPath,
+      frameworkId: "vite",
+      runtime: {
+        kind: "node",
+        packageManager: frontend.packageManager,
+        packageJsonPath: frontend.packageJsonPath,
+        scripts: frontend.scripts
+      },
+      score: frontend.score,
+      evidence: frontend.evidence
+    });
+  }
+
   return {
     workspaceRootPath: "/workspace",
-    backend: { candidates: [], diagnostics: [] },
-    frontend: { candidates: [], diagnostics: [] },
-    python: { candidates: [], diagnostics: [] },
-    diagnostics: [],
-    ...overrides
+    services,
+    pythonRuntime: pythonDetection,
+    diagnostics: []
   };
 }
 

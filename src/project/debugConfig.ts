@@ -1,7 +1,13 @@
 import * as path from "node:path";
 
 import type { StackPilotConfiguration } from "../config/configurationModel";
-import type { DetectedProject } from "../detection/projectDetector";
+import {
+  getBackendService,
+  getDjangoBackendProject,
+  getFrontendService,
+  getPythonEnvironment,
+  type DetectedProject
+} from "../detection/detectedProject";
 
 export const DEBUG_CONFIG_NAME_BACKEND = "StackPilot: Debug Django Server";
 export const DEBUG_CONFIG_NAME_FRONTEND = "StackPilot: Debug Frontend in Chrome";
@@ -30,8 +36,9 @@ export interface LaunchConfigInput {
 export function buildLaunchConfigurations(input: LaunchConfigInput): LaunchConfigPlan {
   const configurations: LaunchConfigurationEntry[] = [];
 
-  const backend = input.detectedProject?.backend.selected;
-  const python = input.detectedProject?.python.selected;
+  const backendService = getBackendService(input.detectedProject);
+  const backend = getDjangoBackendProject(backendService);
+  const python = getPythonEnvironment(backendService);
   if (backend !== undefined && python !== undefined && input.configuration !== undefined) {
     configurations.push({
       name: DEBUG_CONFIG_NAME_BACKEND,
@@ -47,7 +54,7 @@ export function buildLaunchConfigurations(input: LaunchConfigInput): LaunchConfi
     });
   }
 
-  const frontend = input.detectedProject?.frontend.selected;
+  const frontend = getFrontendService(input.detectedProject);
   if (frontend !== undefined && input.configuration !== undefined) {
     configurations.push({
       name: DEBUG_CONFIG_NAME_FRONTEND,

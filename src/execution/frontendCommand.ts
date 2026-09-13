@@ -1,4 +1,3 @@
-import type { FrontendProject } from "../detection/frontendDetector";
 import type { PackageManager } from "../detection/packageManagerDetector";
 import type { StartProcessOptions } from "./processManager";
 
@@ -11,7 +10,7 @@ import type { StartProcessOptions } from "./processManager";
  * output rather than assumed (spec §15).
  */
 export function buildFrontendDevCommand(
-  frontend: FrontendProject,
+  rootPath: string,
   packageManager: PackageManager,
   devScript: string,
   expectedPort?: number
@@ -20,7 +19,7 @@ export function buildFrontendDevCommand(
   return {
     executable,
     args,
-    cwd: frontend.rootPath,
+    cwd: rootPath,
     expectedPort
   };
 }

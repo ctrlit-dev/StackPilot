@@ -3,8 +3,9 @@ import test from "node:test";
 
 import { djangoBackendAdapter } from "../../src/adapters/djangoBackendAdapter";
 import type { BackendProject } from "../../src/detection/backendDetector";
-import type { DetectedProject } from "../../src/detection/projectDetector";
+import type { DetectedProject, DetectedService } from "../../src/detection/detectedProject";
 import type { PythonEnvironment } from "../../src/detection/pythonDetector";
+import { BACKEND_SERVICE_ID } from "../../src/serviceId";
 import {
   planCreateApp,
   planCreateSuperuser,
@@ -19,11 +20,27 @@ import {
 } from "../../src/commands/backendOperationPlans";
 
 function detectedProject(overrides: { backend?: BackendProject; python?: PythonEnvironment } = {}): DetectedProject {
+  const pythonDetection = {
+    selected: overrides.python,
+    candidates: overrides.python === undefined ? [] : [overrides.python],
+    diagnostics: []
+  };
+  const services: DetectedService[] = [];
+  if (overrides.backend !== undefined) {
+    services.push({
+      id: BACKEND_SERVICE_ID,
+      rootPath: overrides.backend.rootPath,
+      frameworkId: "django",
+      runtime: { kind: "python", detection: pythonDetection },
+      frameworkMetadata: { kind: "django", managePyPath: overrides.backend.managePyPath, apps: [] },
+      score: overrides.backend.score,
+      evidence: overrides.backend.evidence
+    });
+  }
   return {
     workspaceRootPath: "/workspace",
-    backend: { selected: overrides.backend, candidates: [], diagnostics: [] },
-    frontend: { candidates: [], diagnostics: [] },
-    python: { selected: overrides.python, candidates: [], diagnostics: [] },
+    services,
+    pythonRuntime: pythonDetection,
     diagnostics: []
   };
 }

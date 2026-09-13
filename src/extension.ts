@@ -14,6 +14,7 @@ import {
   OUTPUT_CHANNEL_NAME,
   VIEW_ID
 } from "./constants";
+import { getBackendService, getFrontendService } from "./detection/detectedProject";
 import { NodeFileSystemProbe } from "./detection/nodeFileSystem";
 import { detectProject } from "./detection/projectDetector";
 import { RatingPromptController } from "./engagement/ratingPromptController";
@@ -258,8 +259,10 @@ export function deactivate(): Thenable<unknown> | undefined {
 }
 
 function summarizeDetection(project: Awaited<ReturnType<typeof detectProject>>): string {
-  const backend = project.backend.selected === undefined ? "backend not detected" : `backend at ${project.backend.selected.rootPath}`;
-  const frontend = project.frontend.selected === undefined ? "frontend not detected" : `frontend at ${project.frontend.selected.rootPath}`;
-  const python = project.python.selected === undefined ? "python not detected" : `python at ${project.python.selected.executablePath}`;
+  const backendService = getBackendService(project);
+  const frontendService = getFrontendService(project);
+  const backend = backendService === undefined ? "backend not detected" : `backend at ${backendService.rootPath}`;
+  const frontend = frontendService === undefined ? "frontend not detected" : `frontend at ${frontendService.rootPath}`;
+  const python = project.pythonRuntime.selected === undefined ? "python not detected" : `python at ${project.pythonRuntime.selected.executablePath}`;
   return `${backend}; ${frontend}; ${python}.`;
 }

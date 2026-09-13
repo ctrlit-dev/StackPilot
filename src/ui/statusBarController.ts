@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { COMMAND_TOGGLE_BACKEND, COMMAND_TOGGLE_FRONTEND } from "../constants";
+import { getBackendService, getFrontendService } from "../detection/detectedProject";
 import type { ManagedProcessDescriptor, ManagedProcessState, ProcessManager } from "../execution/processManager";
 import type { ProjectStateStore } from "../state/projectState";
 import { describeServerState, serverStateIcon } from "./serverStatus";
@@ -50,14 +51,14 @@ export class ServerStatusBarController implements vscode.Disposable {
     this.updateItem(
       this.backendItem,
       "Django",
-      state.detectedProject?.backend.selected !== undefined,
+      getBackendService(state.detectedProject) !== undefined,
       this.processManager.getState("backend"),
       state.configuration?.backendHost
     );
     this.updateItem(
       this.frontendItem,
       "Frontend",
-      state.detectedProject?.frontend.selected !== undefined,
+      getFrontendService(state.detectedProject) !== undefined,
       this.processManager.getState("frontend"),
       undefined
     );

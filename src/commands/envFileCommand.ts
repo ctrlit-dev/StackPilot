@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { COMMAND_OPEN_BACKEND_ENV_FILE, COMMAND_OPEN_FRONTEND_ENV_FILE } from "../constants";
+import { getBackendService, getFrontendService } from "../detection/detectedProject";
 import { findEnvExampleContent } from "../project/envFileTemplate";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
@@ -13,7 +14,7 @@ export function registerEnvFileCommands(context: CommandContext): vscode.Disposa
 }
 
 async function openBackendEnvFile(context: CommandContext): Promise<void> {
-  const backend = context.projectState.getState().detectedProject?.backend.selected;
+  const backend = getBackendService(context.projectState.getState().detectedProject);
   if (backend === undefined) {
     showActionableError(context.outputChannel, "The .env file could not be opened because no Django project was detected.");
     return;
@@ -22,7 +23,7 @@ async function openBackendEnvFile(context: CommandContext): Promise<void> {
 }
 
 async function openFrontendEnvFile(context: CommandContext): Promise<void> {
-  const frontend = context.projectState.getState().detectedProject?.frontend.selected;
+  const frontend = getFrontendService(context.projectState.getState().detectedProject);
   if (frontend === undefined) {
     showActionableError(context.outputChannel, "The .env file could not be opened because no Vite frontend was detected.");
     return;

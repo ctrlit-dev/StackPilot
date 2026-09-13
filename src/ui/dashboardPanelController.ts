@@ -31,8 +31,9 @@ import {
   COMMAND_TOGGLE_FRONTEND,
   DASHBOARD_PANEL_VIEW_TYPE
 } from "../constants";
+import { getBackendService, getDjangoMetadata, getFrontendService, getNodeRuntime } from "../detection/detectedProject";
 import type { DjangoApp } from "../detection/djangoAppDetector";
-import type { FrontendProject } from "../detection/frontendDetector";
+import type { PackageManagerDetection } from "../detection/packageManagerDetector";
 import type { PythonEnvironment } from "../detection/pythonDetector";
 import type { MigrationStatusController } from "../execution/migrationStatusController";
 import type { ManagedProcessDescriptor, ManagedProcessKind, ProcessManager } from "../execution/processManager";
@@ -289,9 +290,9 @@ export class DashboardPanelController implements vscode.Disposable {
 
   private buildDiagnosticsText(): string {
     const state = this.projectState.getState();
-    const backend = state.detectedProject?.backend.selected;
-    const frontend = state.detectedProject?.frontend.selected;
-    const python = state.detectedProject?.python.selected;
+    const backend = getBackendService(state.detectedProject);
+    const frontend = getFrontendService(state.detectedProject);
+    const python = state.detectedProject?.pythonRuntime.selected;
     const version = (this.extension.packageJSON as { readonly version?: unknown }).version;
 
     return [
@@ -341,10 +342,11 @@ export class DashboardPanelController implements vscode.Disposable {
   }
 
   private buildOverviewTab(state: ProjectState): string {
-    const backend = state.detectedProject?.backend.selected;
-    const frontend = state.detectedProject?.frontend.selected;
-    const python = state.detectedProject?.python.selected;
-    const djangoApps = state.detectedProject?.djangoApps ?? [];
+    const backend = getBackendService(state.detectedProject);
+    const frontend = getFrontendService(state.detectedProject);
+    const python = state.detectedProject?.pythonRuntime.selected;
+    const djangoApps = getDjangoMetadata(backend)?.apps ?? [];
+    const frontendRuntime = getNodeRuntime(frontend);
     const backendDescriptor = this.processManager.getState("backend");
     const frontendDescriptor = this.processManager.getState("frontend");
     const canOpenApplication = backendDescriptor.state === "running" || frontendDescriptor.state === "running";
@@ -374,7 +376,7 @@ export class DashboardPanelController implements vscode.Disposable {
         this.recentOutput.get("frontend") ?? []
       ),
       pythonStatCard(python),
-      packageManagerStatCard(frontend)
+      packageManagerStatCard(frontendRuntime?.packageManager)
     ].join("\n");
 
     const sections = [`<div class="stat-grid">${statCards}</div>`];
@@ -407,8 +409,8 @@ export class DashboardPanelController implements vscode.Disposable {
     if (backend !== undefined) {
       tileGroups.push(tileGroup("Backend", "charts.green", BACKEND_TILES));
     }
-    if (frontend !== undefined && frontend.packageManager.kind === "detected") {
-      tileGroups.push(tileGroup("Frontend", "charts.blue", buildFrontendTiles(frontend, state)));
+    if (frontendRuntime !== undefined && frontendRuntime.packageManager.kind === "detected") {
+      tileGroups.push(tileGroup("Frontend", "charts.blue", buildFrontendTiles(frontendRuntime.scripts, state)));
     }
     tileGroups.push(tileGroup("Project", "charts.purple", PROJECT_TILES));
     sections.push(section("Quick Actions", "zap", "charts.yellow", tileGroups.join("\n")));
@@ -2280,12 +2282,12 @@ ${body}
   }
 }
 
-function buildFrontendTiles(frontend: FrontendProject, state: ProjectState): ActionTile[] {
+function buildFrontendTiles(scripts: Readonly<Record<string, string>>, state: ProjectState): ActionTile[] {
   const tiles: ActionTile[] = [{ label: "Install Dependencies", icon: "package", commandId: COMMAND_INSTALL_FRONTEND_DEPENDENCIES }];
-  if (state.configuration !== undefined && Object.hasOwn(frontend.scripts, state.configuration.frontendBuildScript)) {
+  if (state.configuration !== undefined && Object.hasOwn(scripts, state.configuration.frontendBuildScript)) {
     tiles.push({ label: "Build", icon: "tools", commandId: COMMAND_BUILD_FRONTEND });
   }
-  if (state.configuration !== undefined && Object.hasOwn(frontend.scripts, state.configuration.frontendTestScript)) {
+  if (state.configuration !== undefined && Object.hasOwn(scripts, state.configuration.frontendTestScript)) {
     tiles.push({ label: "Run Tests", icon: "beaker", commandId: COMMAND_RUN_FRONTEND_TESTS });
   }
   tiles.push({ label: "Environment Variables (.env)", icon: "key", commandId: COMMAND_OPEN_FRONTEND_ENV_FILE });
@@ -2388,11 +2390,10 @@ function pythonStatCard(python: PythonEnvironment | undefined): string {
   return statCardShell("circuit-board", "charts.blue", "Python", escapeHtml(value));
 }
 
-function packageManagerStatCard(frontend: FrontendProject | undefined): string {
-  if (frontend === undefined) {
+function packageManagerStatCard(packageManager: PackageManagerDetection | undefined): string {
+  if (packageManager === undefined) {
     return statCardShell("package", "disabledForeground", "Package Manager", "Not detected");
   }
-  const packageManager = frontend.packageManager;
   if (packageManager.kind === "detected") {
     return statCardShell("package", "charts.purple", "Package Manager", escapeHtml(packageManager.manager));
   }

@@ -1,4 +1,5 @@
-import type { DetectedProject } from "../detection/projectDetector";
+import { getFrontendService, getNodeRuntime, type DetectedProject } from "../detection/detectedProject";
+import type { PackageManager } from "../detection/packageManagerDetector";
 import {
   buildFrontendBuildCommand,
   buildFrontendInstallCommand,
@@ -15,51 +16,58 @@ export type FrontendOperationPlan =
   | { readonly kind: "no-script" };
 
 export function planInstallFrontendDependencies(detectedProject: DetectedProject | undefined): FrontendOperationPlan {
-  const frontend = detectedProject?.frontend.selected;
-  if (frontend === undefined) {
+  const frontendService = getFrontendService(detectedProject);
+  if (frontendService === undefined) {
     return { kind: "no-frontend" };
   }
 
-  const packageManager = frontend.packageManager;
-  if (packageManager.kind === "missing") {
-    return { kind: "package-manager-missing", reason: packageManager.reason };
+  const packageManager = getNodeRuntime(frontendService)?.packageManager;
+  if (packageManager === undefined || packageManager.kind === "missing") {
+    return {
+      kind: "package-manager-missing",
+      reason: packageManager?.kind === "missing" ? packageManager.reason : "No supported package-manager lockfile was found."
+    };
   }
   if (packageManager.kind === "ambiguous") {
     return { kind: "package-manager-ambiguous", candidates: packageManager.candidates.map((candidate) => candidate.manager) };
   }
 
-  return { kind: "ready", command: buildFrontendInstallCommand(frontend, packageManager.manager) };
+  return { kind: "ready", command: buildFrontendInstallCommand(frontendService.rootPath, packageManager.manager) };
 }
 
 /**
- * Shared by build/test: both need a frontend, a resolved package manager, AND
- * (unlike install) an actual matching package.json script (spec §24: "Only
- * enable when a matching script exists. Do not assume every Vite project has
- * tests.").
+ * Shared by build/test/run-script: all need a frontend, a resolved package
+ * manager, AND (unlike install) an actual matching package.json script
+ * (spec §24: "Only enable when a matching script exists. Do not assume
+ * every Vite project has tests.").
  */
 function planScriptOperation(
   detectedProject: DetectedProject | undefined,
   scriptName: string,
-  build: typeof buildFrontendBuildCommand
+  build: (rootPath: string, packageManager: PackageManager, scriptName: string) => OneShotCommandOptions
 ): FrontendOperationPlan {
-  const frontend = detectedProject?.frontend.selected;
-  if (frontend === undefined) {
+  const frontendService = getFrontendService(detectedProject);
+  if (frontendService === undefined) {
     return { kind: "no-frontend" };
   }
 
-  const packageManager = frontend.packageManager;
-  if (packageManager.kind === "missing") {
-    return { kind: "package-manager-missing", reason: packageManager.reason };
+  const runtime = getNodeRuntime(frontendService);
+  const packageManager = runtime?.packageManager;
+  if (packageManager === undefined || packageManager.kind === "missing") {
+    return {
+      kind: "package-manager-missing",
+      reason: packageManager?.kind === "missing" ? packageManager.reason : "No supported package-manager lockfile was found."
+    };
   }
   if (packageManager.kind === "ambiguous") {
     return { kind: "package-manager-ambiguous", candidates: packageManager.candidates.map((candidate) => candidate.manager) };
   }
 
-  if (!Object.hasOwn(frontend.scripts, scriptName)) {
+  if (runtime === undefined || !Object.hasOwn(runtime.scripts, scriptName)) {
     return { kind: "no-script" };
   }
 
-  return { kind: "ready", command: build(frontend, packageManager.manager, scriptName) };
+  return { kind: "ready", command: build(frontendService.rootPath, packageManager.manager, scriptName) };
 }
 
 export function planBuildFrontend(detectedProject: DetectedProject | undefined, buildScript: string): FrontendOperationPlan {

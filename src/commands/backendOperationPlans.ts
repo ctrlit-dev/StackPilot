@@ -1,6 +1,6 @@
 import type { BackendFrameworkAdapter } from "../adapters/backendFrameworkAdapter";
 import type { BackendProject } from "../detection/backendDetector";
-import type { DetectedProject } from "../detection/projectDetector";
+import { getBackendService, getDjangoBackendProject, getPythonEnvironment, type DetectedProject } from "../detection/detectedProject";
 import type { PythonEnvironment } from "../detection/pythonDetector";
 import type { InteractiveShellInvocation } from "../execution/interactiveTerminalManager";
 import type { OneShotCommandOptions } from "../execution/oneShotCommand";
@@ -9,11 +9,12 @@ import { buildPipInstallCommand } from "../execution/pythonDependencyCommand";
 type BackendPrerequisites = { readonly backend: BackendProject; readonly python: PythonEnvironment } | { readonly kind: "no-backend" } | { readonly kind: "no-python" };
 
 function requireBackendAndPython(detectedProject: DetectedProject | undefined): BackendPrerequisites {
-  const backend = detectedProject?.backend.selected;
+  const backendService = getBackendService(detectedProject);
+  const backend = getDjangoBackendProject(backendService);
   if (backend === undefined) {
     return { kind: "no-backend" };
   }
-  const python = detectedProject?.python.selected;
+  const python = getPythonEnvironment(backendService);
   if (python === undefined) {
     return { kind: "no-python" };
   }

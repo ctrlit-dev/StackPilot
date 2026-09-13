@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { COMMAND_CREATE_VIRTUAL_ENVIRONMENT, COMMAND_REFRESH } from "../constants";
+import { getBackendService } from "../detection/detectedProject";
 import { checkVenvHealth } from "../detection/venvHealthCheck";
 import { buildCreateVenvCommand, findBasePython } from "../execution/venvCommand";
 import { resolveWorkspacePath } from "../utils/paths";
@@ -21,7 +22,7 @@ export async function runCreateVirtualEnvironment(context: CommandContext): Prom
     return false;
   }
 
-  const backend = state.detectedProject?.backend.selected;
+  const backend = getBackendService(state.detectedProject);
   if (backend === undefined || state.detectedProject === undefined) {
     showActionableError(context.outputChannel, "Create Virtual Environment could not run because no Django project was detected.");
     return false;

@@ -1,14 +1,7 @@
-/**
- * Opaque identifier for a development service the extension can manage as a
- * process (spec: "Development Services" - backend, frontend, and later
- * things like a database, Redis, or a worker). A plain `string` alias rather
- * than a branded/nominal type: nothing in this codebase constructs a
- * `ServiceId` through validation or parsing that a brand would protect
- * against, so a brand would add ceremony without adding safety. The named
- * alias still documents intent at every call site instead of leaving a bare
- * `string` for "this is a process kind" to be inferred from context.
- */
-export type ServiceId = string;
+import { BACKEND_SERVICE_ID, FRONTEND_SERVICE_ID, type ServiceId } from "../serviceId";
+
+export type { ServiceId } from "../serviceId";
+export { BACKEND_SERVICE_ID, FRONTEND_SERVICE_ID } from "../serviceId";
 
 /**
  * The set of service ids a `ProcessManager` treats as participating in bulk
@@ -32,9 +25,6 @@ export class ServiceRegistry {
     return this.ids;
   }
 }
-
-export const BACKEND_SERVICE_ID: ServiceId = "backend";
-export const FRONTEND_SERVICE_ID: ServiceId = "frontend";
 
 /** Today's two managed services. A third service is added by constructing a `ServiceRegistry` with more ids, not by widening a type union. */
 export const DEFAULT_SERVICE_REGISTRY = new ServiceRegistry([BACKEND_SERVICE_ID, FRONTEND_SERVICE_ID]);
