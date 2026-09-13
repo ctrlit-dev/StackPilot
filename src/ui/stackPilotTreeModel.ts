@@ -9,8 +9,9 @@ import {
   type DetectedService
 } from "../detection/detectedProject";
 import type { PackageManagerDetection } from "../detection/packageManagerDetector";
+import type { DiagnosticResult, DiagnosticSeverity } from "../diagnostics/diagnostic";
 import type { ManagedProcessDescriptor } from "../execution/processManager";
-import { describeServerState, ICON_BLOCKED, ICON_NOT_DETECTED, serverStateIcon, type StatusIcon } from "./serverStatus";
+import { describeServerState, ICON_BLOCKED, ICON_FAILED, ICON_NOT_DETECTED, serverStateIcon, type StatusIcon } from "./serverStatus";
 import {
   COMMAND_BUILD_FRONTEND,
   COMMAND_CREATE_DJANGO_APP,
@@ -64,10 +65,18 @@ export interface TreeModelInput {
   readonly configuration?: StackPilotConfiguration;
   readonly backend: ManagedProcessDescriptor;
   readonly frontend: ManagedProcessDescriptor;
+  /** Already-computed results from DiagnosticsController - this model never runs a check itself. */
+  readonly diagnostics: readonly DiagnosticResult[];
 }
 
 export function buildStackPilotTree(input: TreeModelInput): TreeNode[] {
-  return [buildBackendSection(input), buildFrontendSection(input), ...buildEnvironmentSection(input), buildToolsSection()];
+  return [
+    buildBackendSection(input),
+    buildFrontendSection(input),
+    ...buildEnvironmentSection(input),
+    ...buildDiagnosticsSection(input),
+    buildToolsSection()
+  ];
 }
 
 function buildBackendSection(input: TreeModelInput): TreeNode {
@@ -276,6 +285,94 @@ function buildEnvironmentSection(input: TreeModelInput): TreeNode[] {
       children
     }
   ];
+}
+
+/**
+ * Pure consumer of already-computed results - runs no check, no filesystem
+ * probe, no process spawn (spec: "Tree führt keine Checks aus"). Omitted
+ * entirely before a project is detected at all, mirroring
+ * buildEnvironmentSection()'s own precedent, rather than showing a premature
+ * "healthy" section for an unselected workspace.
+ */
+function buildDiagnosticsSection(input: TreeModelInput): TreeNode[] {
+  if (input.detectedProject === undefined) {
+    return [];
+  }
+
+  const diagnostics = input.diagnostics;
+
+  if (diagnostics.length === 0) {
+    return [
+      {
+        id: "diagnostics",
+        label: "Diagnostics",
+        icon: { id: "pass-filled", color: "charts.green" },
+        // Presentation only - never a synthetic "success" DiagnosticResult.
+        children: [{ id: "diagnostics.healthy", label: "No issues detected", icon: { id: "check", color: "charts.green" } }]
+      }
+    ];
+  }
+
+  return [
+    {
+      id: "diagnostics",
+      label: "Diagnostics",
+      description: `${diagnostics.length} issue${diagnostics.length === 1 ? "" : "s"}`,
+      icon: worstDiagnosticSeverityIcon(diagnostics),
+      // Same order DiagnosticsController produced them in - no second severity sort, so Tree and Dashboard stay consistent.
+      children: diagnostics.map((diagnostic) => buildDiagnosticNode(diagnostic))
+    }
+  ];
+}
+
+/** One row per DiagnosticResult, rendered generically - no code-specific text, no action inferred beyond `diagnostic.action` itself. */
+function buildDiagnosticNode(diagnostic: DiagnosticResult): TreeNode {
+  return {
+    id: `diagnostics.${diagnostic.code}`,
+    label: diagnostic.message,
+    description: diagnostic.action?.label,
+    tooltip: describeSeverity(diagnostic.severity),
+    icon: diagnosticSeverityIcon(diagnostic.severity),
+    commandId: diagnostic.action?.commandId
+  };
+}
+
+function worstDiagnosticSeverityIcon(diagnostics: readonly DiagnosticResult[]): TreeNodeIcon {
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    return diagnosticSeverityIcon("error");
+  }
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "warning")) {
+    return diagnosticSeverityIcon("warning");
+  }
+  return diagnosticSeverityIcon("info");
+}
+
+/**
+ * Distinct icon shape per severity, not just color. Duplicated in miniature
+ * from dashboardPanelController.ts's own equivalent (deliberately - see
+ * DIAGNOSTICS-1D report) rather than sharing it from there, to keep the
+ * Dashboard file itself untouched.
+ */
+function diagnosticSeverityIcon(severity: DiagnosticSeverity): TreeNodeIcon {
+  switch (severity) {
+    case "error":
+      return ICON_FAILED;
+    case "warning":
+      return ICON_BLOCKED;
+    case "info":
+      return { id: "info", color: "charts.blue" };
+  }
+}
+
+function describeSeverity(severity: DiagnosticSeverity): string {
+  switch (severity) {
+    case "error":
+      return "Error";
+    case "warning":
+      return "Warning";
+    case "info":
+      return "Info";
+  }
 }
 
 function describePython(version: string | undefined, executablePath: string): string {

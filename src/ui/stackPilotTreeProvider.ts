@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import type { DiagnosticsController } from "../diagnostics/diagnosticsController";
 import type { ManagedProcessDescriptor, ProcessManager } from "../execution/processManager";
 import type { ProjectStateStore } from "../state/projectState";
 import { buildStackPilotTree, type TreeNode } from "./stackPilotTreeModel";
@@ -19,7 +20,8 @@ export class StackPilotTreeProvider implements vscode.TreeDataProvider<TreeNode>
 
   public constructor(
     private readonly projectState: ProjectStateStore,
-    processManager: ProcessManager
+    processManager: ProcessManager,
+    private readonly diagnosticsController: DiagnosticsController
   ) {
     this.backend = processManager.getState("backend");
     this.frontend = processManager.getState("frontend");
@@ -29,7 +31,11 @@ export class StackPilotTreeProvider implements vscode.TreeDataProvider<TreeNode>
       processManager.onDidChangeState((descriptor) => {
         this.setDescriptor(descriptor);
         this.refresh();
-      })
+      }),
+      // Rebuilds the VS Code tree representation from cached results only -
+      // never calls diagnosticsController.refresh() itself (that would create
+      // a refresh -> tree-change -> refresh loop).
+      this.diagnosticsController.onDidChangeDiagnostics(() => this.refresh())
     );
   }
 
@@ -60,7 +66,8 @@ export class StackPilotTreeProvider implements vscode.TreeDataProvider<TreeNode>
       detectedProject: state.detectedProject,
       configuration: state.configuration,
       backend: this.backend,
-      frontend: this.frontend
+      frontend: this.frontend,
+      diagnostics: this.diagnosticsController.getResults()
     });
   }
 
