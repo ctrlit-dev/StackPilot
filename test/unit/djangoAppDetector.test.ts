@@ -51,3 +51,29 @@ void test("returns nothing for a backend with no app-like directories", async ()
   const apps = await detectDjangoApps(fs, backendRoot);
   assert.deepEqual(apps, []);
 });
+
+void test("detects apps nested one level inside an apps/ container directory", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(backendRoot, "apps", "blog", "apps.py"))
+    .addFile(path.join(backendRoot, "apps", "users", "models.py"))
+    .addDirectory(path.join(backendRoot, "apps", "users", "migrations"));
+
+  const apps = await detectDjangoApps(fs, backendRoot);
+  assert.deepEqual(apps.map((app) => app.name), ["blog", "users"]);
+  assert.equal(apps[0]?.path, path.join(backendRoot, "apps", "blog"));
+});
+
+void test("combines top-level apps with apps/ container apps in one sorted list", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(backendRoot, "billing", "apps.py"))
+    .addFile(path.join(backendRoot, "apps", "accounts", "apps.py"));
+
+  const apps = await detectDjangoApps(fs, backendRoot);
+  assert.deepEqual(apps.map((app) => app.name), ["accounts", "billing"]);
+});
+
+void test("does not treat the apps/ container itself as an app when it has no marker", async () => {
+  const fs = new InMemoryFileSystemProbe().addFile(path.join(backendRoot, "apps", "blog", "apps.py"));
+  const apps = await detectDjangoApps(fs, backendRoot);
+  assert.deepEqual(apps.map((app) => app.name), ["blog"]);
+});

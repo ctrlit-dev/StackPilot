@@ -3,6 +3,11 @@
 All notable changes to the "StackPilot" extension are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.0.2] - 2026-09-13
+
+### Fixed
+- Django app detection now also looks one level inside an `apps/` container directory (e.g. `apps/blog`, `apps/users`), not just directly under the backend root - apps organized that way were previously invisible in the tree and dashboard.
+
 ## [0.0.1] - 2026-09-12
 
 Initial release.

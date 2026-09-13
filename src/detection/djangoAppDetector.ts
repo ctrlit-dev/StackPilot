@@ -8,6 +8,15 @@ export interface DjangoApp {
 }
 
 /**
+ * Directory names that conventionally hold nothing but local Django apps
+ * (`apps/blog/`, `apps/users/`, ...). Checked one level deep in addition to
+ * the backend root itself - still a bounded, known-layout lookup rather than
+ * a general recursive scan (spec §47), the same approach MANAGE_PY_CANDIDATES
+ * and FRONTEND_CANDIDATE_DIRECTORIES already use for their own layouts.
+ */
+const APP_CONTAINER_DIRECTORY_NAMES = ["apps"] as const;
+
+/**
  * Filesystem-only heuristic, deliberately not a parse of INSTALLED_APPS in
  * settings.py (settings can be split across modules, computed, or read from
  * environment variables - reliably parsing arbitrary Python was judged too
@@ -20,14 +29,27 @@ export interface DjangoApp {
  * neither of which contains either marker.
  */
 export async function detectDjangoApps(fs: FileSystemProbe, backendRootPath: string): Promise<DjangoApp[]> {
-  const entryNames = await fs.listDirectoryNames(backendRootPath);
   const apps: DjangoApp[] = [];
+  await collectDjangoApps(fs, backendRootPath, apps);
+
+  for (const containerName of APP_CONTAINER_DIRECTORY_NAMES) {
+    const containerPath = path.join(backendRootPath, containerName);
+    if (await fs.directoryExists(containerPath)) {
+      await collectDjangoApps(fs, containerPath, apps);
+    }
+  }
+
+  return apps.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function collectDjangoApps(fs: FileSystemProbe, directoryPath: string, apps: DjangoApp[]): Promise<void> {
+  const entryNames = await fs.listDirectoryNames(directoryPath);
 
   for (const name of entryNames) {
     if (name.startsWith(".")) {
       continue;
     }
-    const entryPath = path.join(backendRootPath, name);
+    const entryPath = path.join(directoryPath, name);
     if (!(await fs.directoryExists(entryPath))) {
       continue;
     }
@@ -35,8 +57,6 @@ export async function detectDjangoApps(fs: FileSystemProbe, backendRootPath: str
       apps.push({ name, path: entryPath });
     }
   }
-
-  return apps.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function looksLikeDjangoApp(fs: FileSystemProbe, appPath: string): Promise<boolean> {
