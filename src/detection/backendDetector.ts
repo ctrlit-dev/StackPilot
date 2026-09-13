@@ -1,8 +1,9 @@
 import * as path from "node:path";
 
+import type { BackendFrameworkDetection } from "../adapters/backendFrameworkDetection";
 import type { StackPilotConfiguration } from "../config/configurationModel";
-import { resolveWorkspacePath, selectHighestConfidenceCandidate, uniqueStrings } from "../utils/paths";
-import { checkCandidatePath, type FileSystemProbe } from "./fileSystem";
+import { selectHighestConfidenceCandidate } from "../utils/paths";
+import type { FileSystemProbe } from "./fileSystem";
 
 export interface BackendProject {
   readonly rootPath: string;
@@ -17,43 +18,41 @@ export interface BackendDetectionResult {
   readonly diagnostics: readonly string[];
 }
 
-const MANAGE_PY_CANDIDATES = ["manage.py", "backend/manage.py", "server/manage.py", "api/manage.py"] as const;
 const BACKEND_EVIDENCE_FILES = ["pyproject.toml", "requirements.txt", "Pipfile", "poetry.lock", "uv.lock"] as const;
 
+/**
+ * Orchestrates backend detection generically: asks the injected
+ * `BackendFrameworkDetection` where this framework's entry point candidates
+ * are (spec §47: bounded, known-layout lookup, not a general recursive
+ * scan - see `adapters/djangoBackendDetection.ts`), then scores each
+ * candidate using framework-neutral evidence (do common Python packaging
+ * files exist nearby?) and picks the strongest one. This function has no
+ * knowledge of "manage.py" or any other framework-specific marker - see
+ * docs/ARCHITECTURE.md.
+ */
 export async function detectBackendProject(
   fs: FileSystemProbe,
   workspaceRootPath: string,
-  configuration: StackPilotConfiguration
+  configuration: StackPilotConfiguration,
+  backendFrameworkDetection: BackendFrameworkDetection
 ): Promise<BackendDetectionResult> {
-  const diagnostics: string[] = [];
+  const frameworkDetection = await backendFrameworkDetection.detect(fs, workspaceRootPath, configuration.backendManagePy);
   const candidates: BackendProject[] = [];
-  const managePyCandidates = uniqueStrings([configuration.backendManagePy, ...MANAGE_PY_CANDIDATES]);
 
-  for (const managePyCandidate of managePyCandidates) {
-    const managePyPath = resolveWorkspacePath(workspaceRootPath, managePyCandidate);
-    const check = await checkCandidatePath(fs, workspaceRootPath, managePyPath, "manage.py candidate");
-    if (check.kind === "not-found") {
-      continue;
-    }
-    if (check.kind === "unsafe") {
-      diagnostics.push(check.diagnostic);
-      continue;
-    }
-
-    const rootPath = path.dirname(managePyPath);
-    const evidence = await collectBackendEvidence(fs, rootPath);
+  for (const entryPointCandidate of frameworkDetection.candidates) {
+    const evidence = await collectBackendEvidence(fs, entryPointCandidate.rootPath);
     candidates.push({
-      rootPath,
-      managePyPath,
-      evidence: ["manage.py", ...evidence],
-      score: calculateBackendScore(workspaceRootPath, rootPath, evidence.length)
+      rootPath: entryPointCandidate.rootPath,
+      managePyPath: entryPointCandidate.frameworkEntryPath,
+      evidence: [entryPointCandidate.evidence, ...evidence],
+      score: calculateBackendScore(workspaceRootPath, entryPointCandidate.rootPath, evidence.length)
     });
   }
 
   return {
     selected: selectHighestConfidenceCandidate(candidates),
     candidates,
-    diagnostics
+    diagnostics: frameworkDetection.diagnostics
   };
 }
 

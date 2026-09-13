@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { djangoBackendAdapter } from "./adapters/djangoBackendAdapter";
+import { djangoBackendDetection } from "./adapters/djangoBackendDetection";
 import { viteFrontendAdapter } from "./adapters/viteFrontendAdapter";
+import { viteFrontendDetection } from "./adapters/viteFrontendDetection";
 import { registerCommands } from "./commands/registerCommands";
 import { readStackPilotConfiguration } from "./config/configuration";
 import {
@@ -71,7 +73,13 @@ export function activate(context: vscode.ExtensionContext): void {
       outputChannel.appendLine(`Configuration warning (${diagnostic.setting}): ${diagnostic.message}`);
     }
 
-    const detectedProject = await detectProject(fileSystem, selectedWorkspaceUri.fsPath, configuration.value);
+    const detectedProject = await detectProject(
+      fileSystem,
+      selectedWorkspaceUri.fsPath,
+      configuration.value,
+      djangoBackendDetection,
+      viteFrontendDetection
+    );
     for (const diagnostic of detectedProject.diagnostics) {
       outputChannel.appendLine(`Detection warning: ${diagnostic}`);
     }

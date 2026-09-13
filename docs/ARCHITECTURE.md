@@ -103,10 +103,57 @@ output/state tracker (accumulate a bounded buffer, remember the result,
 `reset()`) with the adapter injected via its constructor - it has no idea
 what Vite's output looks like.
 
-Django app detection (`detectDjangoApps`), the New Project scaffold wizard,
-and frontend/Vite *detection* (`detection/frontendDetector.ts`) are unchanged
-and still live where they did before - this boundary currently covers
-backend start/operations and frontend dev-server-URL parsing only.
+Django app detection (`detectDjangoApps`) and the New Project scaffold wizard
+are unchanged and still live where they did before.
+
+**Framework runtime behavior and framework detection evidence are separate
+concerns.** `BackendFrameworkAdapter`/`FrontendFrameworkAdapter` answer "given
+an already-detected project, how do I run/observe it"; `BackendFrameworkDetection`
+(`adapters/backendFrameworkDetection.ts`) and `FrontendFrameworkDetection`
+(`adapters/frontendFrameworkDetection.ts`) answer the earlier, read-only
+question "does this framework exist in this workspace, and where" -
+`adapters/djangoBackendDetection.ts` and `adapters/viteFrontendDetection.ts`
+answer it for Django and Vite. They are deliberately not methods on the
+runtime adapters: every `BackendFrameworkAdapter` method is a synchronous,
+pure descriptor builder for an *already-selected* project, while detection is
+asynchronous, touches the filesystem via the existing `FileSystemProbe`, and
+runs *before* any project is selected - a different shape, not a missing
+method on the same interface. `detection/backendDetector.ts` and
+`detection/frontendDetector.ts` still own everything framework-neutral: root
+candidate orchestration, symlink/workspace-escape safety
+(`detection/fileSystem.ts`'s `checkCandidatePath`), generic Python-packaging
+evidence and scoring (backend), and `package.json`/script/package-manager
+handling (frontend) - they now just delegate the one framework-specific
+question ("where is this framework's own marker?") to the injected detection
+capability instead of knowing `manage.py`/`vite.config.*` themselves.
+**Filename markers are evidence used by the current Django/Vite
+implementations, not the universal framework-detection abstraction** - a
+future framework whose evidence is a dependency name inside
+`pyproject.toml`/`requirements.txt` rather than a single marker file (FastAPI,
+say) implements the exact same `detect()`/`findFrameworkConfigPath()`
+contract with a completely different internal strategy, no change to
+`backendDetector.ts`/`frontendDetector.ts` required.
+
+Runtime detection (Python interpreter/venv, Node package manager) stays
+entirely separate and unchanged (`detection/pythonDetector.ts`,
+`detection/packageManagerDetector.ts`) - it answers "what executes this
+project", never "which framework is this".
+
+The project model stays intentionally legacy-shaped for now:
+`DetectedProject`/`BackendProject`/`FrontendProject` are unchanged, and
+`BackendProject.managePyPath`/`FrontendProject.viteConfigPath` keep their
+Django/Vite-specific field names - the detection capabilities' own result
+types use framework-neutral names (`frameworkEntryPath`), and
+`detection/backendDetector.ts`/`detection/frontendDetector.ts` map that
+result into the legacy field when building the final `BackendProject`/
+`FrontendProject`. Generalizing the project model itself is separate,
+later work.
+
+There is intentionally no detection registry or scoring engine here either -
+exactly two real frameworks exist, wired directly at the composition root
+(`extension.ts` passes `djangoBackendDetection`/`viteFrontendDetection` into
+`detection/projectDetector.ts`'s `detectProject()`), and detection stays
+fully deterministic.
 
 ## Detection (read-only)
 

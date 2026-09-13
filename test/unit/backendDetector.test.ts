@@ -2,14 +2,22 @@ import assert from "node:assert/strict";
 import * as path from "node:path";
 import test from "node:test";
 
+import type { BackendFrameworkDetection } from "../../src/adapters/backendFrameworkDetection";
+import { djangoBackendDetection } from "../../src/adapters/djangoBackendDetection";
 import { DEFAULT_CONFIGURATION, type StackPilotConfiguration } from "../../src/config/configurationModel";
-import { detectBackendProject } from "../../src/detection/backendDetector";
+import { detectBackendProject as detectBackendProjectWithFrameworkDetection } from "../../src/detection/backendDetector";
+import type { FileSystemProbe } from "../../src/detection/fileSystem";
 import { InMemoryFileSystemProbe } from "./fakes/inMemoryFileSystem";
 
 const workspaceRoot = path.resolve("pc-test-fixtures", "backend-detector");
 
 function configuration(overrides: Partial<StackPilotConfiguration> = {}): StackPilotConfiguration {
   return { ...DEFAULT_CONFIGURATION, ...overrides };
+}
+
+/** Every existing test below exercises real Django detection, unchanged - see the delegation test at the bottom for proof that this is injected, not hard-coded. */
+function detectBackendProject(fs: FileSystemProbe, workspaceRootPath: string, config: StackPilotConfiguration) {
+  return detectBackendProjectWithFrameworkDetection(fs, workspaceRootPath, config, djangoBackendDetection);
 }
 
 void test("detects a Django project at the workspace root", async () => {
@@ -88,4 +96,32 @@ void test("detects a Django project at a workspace root containing spaces and Un
   const result = await detectBackendProject(fs, unicodeWorkspaceRoot, configuration());
 
   assert.equal(result.selected?.rootPath, path.join(unicodeWorkspaceRoot, "backend"));
+});
+
+void test("detectBackendProject has no knowledge of 'manage.py' itself - it only scores and selects whatever the injected framework detection finds", async () => {
+  // Proves detectBackendProject is framework-detection-driven, not Django-
+  // specific itself: a fake framework detection that recognizes none of
+  // Django's markers, but reports its own entry point at a completely
+  // different path, must still be reflected verbatim in the resulting
+  // BackendProject.
+  const fakeDetection: BackendFrameworkDetection = {
+    frameworkId: "fake-framework",
+    detect: (_fs, workspaceRootPath) => Promise.resolve({
+      candidates: [
+        {
+          rootPath: path.join(workspaceRootPath, "api"),
+          frameworkEntryPath: path.join(workspaceRootPath, "api", "app.py"),
+          evidence: "app.py"
+        }
+      ],
+      diagnostics: []
+    })
+  };
+  const fs = new InMemoryFileSystemProbe();
+
+  const result = await detectBackendProjectWithFrameworkDetection(fs, workspaceRoot, configuration(), fakeDetection);
+
+  assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "api"));
+  assert.equal(result.selected?.managePyPath, path.join(workspaceRoot, "api", "app.py"));
+  assert.deepEqual(result.selected?.evidence, ["app.py"]);
 });
