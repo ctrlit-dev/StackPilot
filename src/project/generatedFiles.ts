@@ -1,29 +1,50 @@
-import type { NewProjectPreset } from "./newProjectPresets";
+import type { ReadmeSection } from "./create/backendCreateModule";
+
+export interface ComposeConfirmationSummaryOptions {
+  readonly projectRoot: string;
+  readonly backendSummary: readonly string[];
+  readonly initializeGit: boolean;
+}
+
+/**
+ * The final New Project confirmation dialog's content - "Location" and
+ * "Git repository" are generic (CREATE-ARCH-1B.1 correction: neither is a
+ * backend-specific fact), `backendSummary` is the chosen backend's own,
+ * already-formatted lines (e.g. Django's "Preset: ..."/"Python: ..."),
+ * passed straight through, never interpreted here.
+ */
+export function composeConfirmationSummaryLines(options: ComposeConfirmationSummaryOptions): readonly string[] {
+  return [`Location: ${options.projectRoot}`, ...options.backendSummary, `Git repository: ${options.initializeGit ? "Initialize" : "Skip"}`];
+}
 
 /**
  * Covers at least the entries spec §27 lists. Kept short and generic - this
  * is a starting point the user can extend, not an exhaustive template.
+ * `backendEntries` are literal lines (comments included) contributed by the
+ * chosen backend module - e.g. Django's own ["# Django", "db.sqlite3",
+ * "staticfiles/"] - inserted between the always-present Python and Node
+ * blocks, reproducing today's Django output byte-for-byte.
  */
-export function buildGitignoreContent(): string {
-  return `# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.env
-
-# Django
-db.sqlite3
-staticfiles/
-
-# Node
-node_modules/
-dist/
-
-# Editors / OS
-.DS_Store
-Thumbs.db
-`;
+export function composeGitignoreContent(backendEntries: readonly string[]): string {
+  const lines = [
+    "# Python",
+    "__pycache__/",
+    "*.py[cod]",
+    ".venv/",
+    "venv/",
+    ".env",
+    "",
+    ...backendEntries,
+    "",
+    "# Node",
+    "node_modules/",
+    "dist/",
+    "",
+    "# Editors / OS",
+    ".DS_Store",
+    "Thumbs.db"
+  ];
+  return `${lines.join("\n")}\n`;
 }
 
 export interface RequirementsEntry {
@@ -34,21 +55,16 @@ export interface RequirementsEntry {
 /**
  * A short, intentional requirements.txt (spec §28: "a simple intentional
  * requirements.txt is preferable to a giant uncontrolled pip freeze") -
- * records exactly the packages this wizard itself installed, at the actual
- * version pip reported, not a speculative pin.
+ * records exactly the packages the chosen backend module itself installed,
+ * at the actual version pip reported, not a speculative pin.
  */
 export function buildRequirementsTxtContent(entries: readonly RequirementsEntry[]): string {
   return entries.map((entry) => `${entry.name}==${entry.version}`).join("\n") + "\n";
 }
 
-export function buildVSCodeSettingsContent(pythonInterpreterWorkspaceRelativePath: string): string {
-  return `${JSON.stringify(
-    {
-      "python.defaultInterpreterPath": `\${workspaceFolder}/${pythonInterpreterWorkspaceRelativePath}`
-    },
-    null,
-    2
-  )}\n`;
+/** Generic - takes already-resolved settings (e.g. a full `${workspaceFolder}/...` value), not a Django-specific relative path. */
+export function composeVSCodeSettingsContent(settings: Readonly<Record<string, string>>): string {
+  return `${JSON.stringify(settings, null, 2)}\n`;
 }
 
 export function buildDocsReadmeContent(): string {
@@ -58,62 +74,43 @@ Project architecture, planning, and other documentation can be stored here.
 `;
 }
 
-export interface ReadmeContext {
+export interface ComposeReadmeContentOptions {
   readonly projectName: string;
-  readonly preset: NewProjectPreset;
-  /** Just the venv's own folder name (e.g. ".venv"), not a path - used both in the tree diagram and the activate command run from inside backend/. */
-  readonly venvDirectoryName: string;
-  readonly packageManager?: string;
-  readonly backendHost: string;
-  readonly backendPort: number;
-  readonly frontendPort: number;
+  readonly headerNote: string;
+  readonly backendSection: ReadmeSection;
+  readonly backendNotes: readonly string[];
+  readonly frontendSection?: ReadmeSection;
 }
 
 /**
  * Concise by design (spec §34: "documentation, not an enormous framework
  * tutorial") - structure, setup, manual equivalent commands, default URLs,
- * and a venv note, nothing more.
+ * and notes, nothing more. Assembles the backend's own section, the
+ * frontend's own section (when present), and the fixed generic headings
+ * around them - the same overall shape the pre-CREATE-ARCH-1B Django-only
+ * buildReadmeContent() produced, now composed from structured fragments
+ * instead of hardcoding Django's own content inline.
  */
-export function buildReadmeContent(context: ReadmeContext): string {
-  const lines: string[] = [`# ${context.projectName}`, "", `Generated with the **${context.preset.label}** preset.`, "", "## Project structure", "", "```text"];
+export function composeReadmeContent(options: ComposeReadmeContentOptions): string {
+  const lines: string[] = [`# ${options.projectName}`, "", options.headerNote, "", "## Project structure", "", "```text"];
 
-  lines.push(`${context.projectName}/`, "├── backend/", `│   ├── ${context.venvDirectoryName}/`, "│   ├── manage.py", "│   └── requirements.txt");
-  if (context.preset.includesFrontend) {
-    lines.push("├── frontend/", "│   ├── src/", "│   └── package.json");
+  lines.push(`${options.projectName}/`, ...options.backendSection.treeLines);
+  if (options.frontendSection !== undefined) {
+    lines.push(...options.frontendSection.treeLines);
   }
   lines.push("├── docs/", "├── .vscode/", "├── .gitignore", "└── README.md", "```", "");
 
-  lines.push(
-    "## Backend setup",
-    "",
-    "```sh",
-    "cd backend",
-    `${context.venvDirectoryName}\\Scripts\\activate   # Windows`,
-    `source ${context.venvDirectoryName}/bin/activate  # macOS/Linux`,
-    "python manage.py migrate",
-    `python manage.py runserver ${context.backendHost}:${context.backendPort}`,
-    "```",
-    ""
-  );
+  lines.push("## Backend setup", "", "```sh", ...options.backendSection.setupCommands, "```", "");
 
-  if (context.preset.includesFrontend && context.packageManager !== undefined) {
-    lines.push(
-      "## Frontend setup",
-      "",
-      "```sh",
-      "cd frontend",
-      `${context.packageManager} install`,
-      `${context.packageManager}${context.packageManager === "npm" ? " run" : ""} dev`,
-      "```",
-      ""
-    );
+  if (options.frontendSection !== undefined) {
+    lines.push("## Frontend setup", "", "```sh", ...options.frontendSection.setupCommands, "```", "");
   }
 
-  lines.push("## Default local URLs", "", `- Backend: http://${context.backendHost}:${context.backendPort}/`);
-  if (context.preset.includesFrontend) {
-    lines.push(`- Frontend: http://127.0.0.1:${context.frontendPort}/ (Vite may choose a different port if this one is busy)`);
+  lines.push("## Default local URLs", "", options.backendSection.defaultUrlLine);
+  if (options.frontendSection !== undefined) {
+    lines.push(options.frontendSection.defaultUrlLine);
   }
-  lines.push("", "## Notes", "", `- The backend's virtual environment lives at \`backend/${context.venvDirectoryName}\` and is not committed to Git.`, "");
+  lines.push("", "## Notes", "", ...options.backendNotes, "");
 
   return lines.join("\n");
 }

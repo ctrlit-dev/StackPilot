@@ -13,6 +13,9 @@ export interface NewProjectPreset {
  * The four presets spec §26 names, deliberately not more ("Do not
  * over-engineer presets in V1"). Order matters: DEFAULT_PRESET_ID is listed
  * first since it is "the strongest default for a modern full-stack setup".
+ * Django's own, private data (plan §20/§32.6) - consumed only by
+ * djangoCreateInputs.ts; the wizard and the generic orchestrator never read
+ * this table.
  */
 export const NEW_PROJECT_PRESETS: readonly NewProjectPreset[] = [
   {
