@@ -2,8 +2,8 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { DEFAULT_CONFIGURATION } from "../config/configurationModel";
 import { COMMAND_CREATE_PROJECT } from "../constants";
-import type { BackendCreateModule, BackendCreatePlan } from "../project/create/backendCreateModule";
-import { BACKEND_CREATE_MODULES } from "../project/create/backendCreateModules";
+import type { ProjectCreateModule, ProjectCreatePlan } from "../project/create/projectCreateModule";
+import { PROJECT_CREATE_MODULES } from "../project/create/projectCreateModules";
 import { composeProjectSteps } from "../project/create/projectStepsComposition";
 import { composeConfirmationSummaryLines } from "../project/generatedFiles";
 import { checkDestination, cleanupCreatedPaths } from "../project/projectCollision";
@@ -16,10 +16,10 @@ export function registerNewProjectCommand(context: CommandContext): vscode.Dispo
 }
 
 /**
- * Thin, generic VS Code UI orchestration. Knows the BackendCreateModule
- * contract and the BACKEND_CREATE_MODULES registry, and nothing else about
- * any backend framework - no framework id, no per-framework branch, no
- * import of a concrete backend module (see
+ * Thin, generic VS Code UI orchestration. Knows the ProjectCreateModule
+ * contract and the PROJECT_CREATE_MODULES registry, and nothing else about
+ * any concrete framework - no framework id, no per-framework branch, no
+ * import of a concrete project module (see
  * docs/CREATE_ARCH_MODULAR_PROJECT_CREATION_PLAN.md §13.4/§27). Every prompt
  * can be cancelled with ESC, which exits the wizard immediately without any
  * side effect - nothing is created until the generic final confirmation
@@ -36,15 +36,15 @@ export async function runNewProjectWizard(context: CommandContext): Promise<void
     return;
   }
 
-  const backendModule = await pickBackendCreateModule(BACKEND_CREATE_MODULES);
-  if (backendModule === undefined) {
+  const projectModule = await pickProjectCreateModule(PROJECT_CREATE_MODULES);
+  if (projectModule === undefined) {
     return;
   }
 
   const outputSink: { current?: { write(chunk: string): void } } = {};
   const onOutput = (chunk: string): void => outputSink.current?.write(chunk);
 
-  const backendPlan = await backendModule.prepare({
+  const projectPlan = await projectModule.prepare({
     parentDirectory,
     projectName,
     fileSystem: context.fileSystem,
@@ -54,7 +54,7 @@ export async function runNewProjectWizard(context: CommandContext): Promise<void
     onOutput,
     configuration: DEFAULT_CONFIGURATION
   });
-  if (backendPlan === undefined) {
+  if (projectPlan === undefined) {
     return;
   }
 
@@ -63,12 +63,12 @@ export async function runNewProjectWizard(context: CommandContext): Promise<void
     return;
   }
 
-  const confirmed = await confirmProjectSummary(backendPlan.projectRoot, projectName, backendPlan, initializeGit);
+  const confirmed = await confirmProjectSummary(projectPlan.projectRoot, projectName, projectPlan, initializeGit);
   if (!confirmed) {
     return;
   }
 
-  await createProject(context, backendPlan, projectName, initializeGit, outputSink, onOutput);
+  await createProject(context, projectPlan, projectName, initializeGit, outputSink, onOutput);
 }
 
 /** Generic - "should Git be initialized" has no backend-specific meaning (plan §32.1/§18). Wording/choices unchanged from the pre-CREATE-ARCH-1B.1 Django-owned prompt. */
@@ -82,9 +82,9 @@ async function pickGitChoice(): Promise<boolean | undefined> {
   return gitChoice === "Yes";
 }
 
-/** Generic composition of the one final confirmation dialog - the wizard never reads into backendPlan.confirmationSummary's individual lines, only renders them verbatim. */
-async function confirmProjectSummary(projectRoot: string, projectName: string, backendPlan: BackendCreatePlan, initializeGit: boolean): Promise<boolean> {
-  const summaryLines = composeConfirmationSummaryLines({ projectRoot, backendSummary: backendPlan.confirmationSummary, initializeGit });
+/** Generic composition of the one final confirmation dialog - the wizard never reads into projectPlan.confirmationSummary's individual lines, only renders them verbatim. */
+async function confirmProjectSummary(projectRoot: string, projectName: string, projectPlan: ProjectCreatePlan, initializeGit: boolean): Promise<boolean> {
+  const summaryLines = composeConfirmationSummaryLines({ projectRoot, backendSummary: projectPlan.confirmationSummary, initializeGit });
   const choice = await vscode.window.showWarningMessage(
     `Create project "${projectName}"?`,
     { modal: true, detail: summaryLines.join("\n") },
@@ -120,21 +120,21 @@ async function pickProjectName(context: CommandContext, parentDirectory: string)
 }
 
 /** Auto-selects while exactly one module is registered - mirrors the pre-existing pickBasePython pattern, keeping today's Django-only UX unchanged. */
-async function pickBackendCreateModule(modules: readonly BackendCreateModule[]): Promise<BackendCreateModule | undefined> {
+async function pickProjectCreateModule(modules: readonly ProjectCreateModule[]): Promise<ProjectCreateModule | undefined> {
   if (modules.length === 1) {
     return modules[0];
   }
 
   const pick = await vscode.window.showQuickPick(
     modules.map((module) => ({ label: module.label, description: module.description, module })),
-    { title: "New Project: Choose a Backend Framework" }
+    { title: "New Project: Choose a Project Type" }
   );
   return pick?.module;
 }
 
 async function createProject(
   context: CommandContext,
-  backendPlan: BackendCreatePlan,
+  projectPlan: ProjectCreatePlan,
   projectName: string,
   initializeGit: boolean,
   outputSink: { current?: { write(chunk: string): void } },
@@ -146,7 +146,7 @@ async function createProject(
   const result = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Creating "${projectName}"…`, cancellable: true },
     async (progress, token) => {
-      const steps = composeProjectSteps(context.spawner, context.projectFileWriter, backendPlan, {
+      const steps = composeProjectSteps(context.spawner, context.projectFileWriter, projectPlan, {
         initializeGit,
         onOutput,
         onGitStatus: (status, detail) => {
@@ -183,7 +183,7 @@ async function createProject(
     context.outputChannel.appendLine(`Git repository initialization failed: ${gitStatus.detail ?? "unknown error"}`);
   }
 
-  await offerToOpenProject(backendPlan.projectRoot, projectName);
+  await offerToOpenProject(projectPlan.projectRoot, projectName);
 }
 
 async function handleScaffoldStoppedEarly(

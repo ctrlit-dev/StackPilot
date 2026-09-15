@@ -4,7 +4,7 @@ import type { PackageManager } from "../../../detection/packageManagerDetector";
 import { detectPythonEnvironment, type PythonEnvironment } from "../../../detection/pythonDetector";
 import { showActionableError } from "../../../ui/notifications";
 import { validateFolderName } from "../../projectNameValidation";
-import type { BackendCreateContext } from "../backendCreateModule";
+import type { ProjectCreateContext } from "../projectCreateModule";
 import { DEFAULT_PRESET_ID, NEW_PROJECT_PRESETS, type NewProjectPreset } from "./djangoNewProjectPresets";
 import type { DjangoInputs } from "./djangoScaffoldPlan";
 
@@ -23,7 +23,7 @@ const PACKAGE_MANAGER_CHOICES: readonly PackageManager[] = ["npm", "pnpm", "yarn
  * Git and composes/shows the one final confirmation itself, using this
  * module's confirmationSummary contribution (built in djangoScaffoldPlan.ts).
  */
-export async function collectDjangoInputs(context: BackendCreateContext): Promise<DjangoInputs | undefined> {
+export async function collectDjangoInputs(context: ProjectCreateContext): Promise<DjangoInputs | undefined> {
   const preset = await pickPreset();
   if (preset === undefined) {
     return undefined;
@@ -102,7 +102,7 @@ async function pickPreset(): Promise<NewProjectPreset | undefined> {
   return pick?.preset;
 }
 
-async function pickBasePython(context: BackendCreateContext): Promise<PythonEnvironment | undefined> {
+async function pickBasePython(context: ProjectCreateContext): Promise<PythonEnvironment | undefined> {
   // No project exists yet, so this only ever finds PATH-based interpreters
   // (there is no backend/.venv to detect and no configured interpreter for
   // a project that does not exist).

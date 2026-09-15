@@ -1,4 +1,4 @@
-import type { BackendCreateModule } from "../backendCreateModule";
+import type { ProjectCreateModule } from "../projectCreateModule";
 import { buildFastApiCreatePlan } from "./fastApiScaffoldPlan";
 
 /**
@@ -6,10 +6,10 @@ import { buildFastApiCreatePlan } from "./fastApiScaffoldPlan";
  * duplicated here (they live in fastApiCreateInputs.ts/fastApiScaffoldPlan.ts).
  * Mirrors django/djangoCreateModule.ts exactly, including the lazy import of
  * its presentation half for the same reason: keeps this file (and therefore
- * the registry, backendCreateModules.ts) importable by plain unit tests with
+ * the registry, projectCreateModules.ts) importable by plain unit tests with
  * no vscode runtime present.
  */
-export const fastApiCreateModule: BackendCreateModule = {
+export const fastApiCreateModule: ProjectCreateModule = {
   id: "fastapi",
   label: "FastAPI",
   description: "Lightweight, high-performance Python web framework for building APIs.",

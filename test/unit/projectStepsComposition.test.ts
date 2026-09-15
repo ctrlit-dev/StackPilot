@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
 import type { PythonEnvironment } from "../../src/detection/pythonDetector";
-import type { BackendCreatePlan } from "../../src/project/create/backendCreateModule";
+import type { ProjectCreatePlan } from "../../src/project/create/projectCreateModule";
 import { composeProjectSteps } from "../../src/project/create/projectStepsComposition";
 import { findPreset } from "../../src/project/create/django/djangoNewProjectPresets";
 import { buildDjangoCreatePlan, type DjangoScaffoldContext } from "../../src/project/create/django/djangoScaffoldPlan";
@@ -16,12 +16,12 @@ import { InMemoryProjectFileWriter } from "./fakes/inMemoryProjectFileWriter";
 const projectRoot = path.resolve("pc-test-fixtures", "new-project", "kunden-portal");
 
 /**
- * A plausible, entirely non-Django-shaped BackendCreatePlan - no import of
+ * A plausible, entirely non-Django-shaped ProjectCreatePlan - no import of
  * any Django type. Proves composeProjectSteps/buildSharedProjectSteps/
  * buildViteFrontendSteps hold no Django dependency (plan §28, "composer
  * isolation").
  */
-function fakeBackendPlan(spawner: FakeProcessSpawner, writer: InMemoryProjectFileWriter, overrides: Partial<BackendCreatePlan> = {}): BackendCreatePlan {
+function fakeProjectPlan(spawner: FakeProcessSpawner, writer: InMemoryProjectFileWriter, overrides: Partial<ProjectCreatePlan> = {}): ProjectCreatePlan {
   return {
     projectRoot,
     steps: [
@@ -30,7 +30,7 @@ function fakeBackendPlan(spawner: FakeProcessSpawner, writer: InMemoryProjectFil
     ],
     gitignoreEntries: ["# Fake", "fake.log"],
     readmeHeaderNote: "Generated with the **Fake** preset.",
-    readmeSection: { treeLines: ["├── backend/"], setupCommands: ["fake run"], defaultUrlLine: "- Backend: http://127.0.0.1:9000/" },
+    readmeSection: { heading: "Backend setup", treeLines: ["├── backend/"], setupCommands: ["fake run"], defaultUrlLine: "- Backend: http://127.0.0.1:9000/" },
     readmeNotes: ["- Fake notes."],
     vscodeSettings: { "fake.setting": "value" },
     confirmationSummary: ["Fake: setting"],
@@ -41,7 +41,7 @@ function fakeBackendPlan(spawner: FakeProcessSpawner, writer: InMemoryProjectFil
 void test("composes project-root, backend steps, then shared steps, in order, when no frontend is requested", () => {
   const spawner = new FakeProcessSpawner();
   const writer = new InMemoryProjectFileWriter();
-  const plan = fakeBackendPlan(spawner, writer);
+  const plan = fakeProjectPlan(spawner, writer);
 
   const steps = composeProjectSteps(spawner, writer, plan, { initializeGit: false });
 
@@ -61,7 +61,7 @@ void test("composes project-root, backend steps, then shared steps, in order, wh
 void test("inserts frontend steps between backend steps and shared steps only when requested, with git init last", () => {
   const spawner = new FakeProcessSpawner();
   const writer = new InMemoryProjectFileWriter();
-  const plan = fakeBackendPlan(spawner, writer, {
+  const plan = fakeProjectPlan(spawner, writer, {
     frontend: { packageManager: "npm", template: "react-ts", frontendPort: 5173 }
   });
 
@@ -86,7 +86,7 @@ void test("inserts frontend steps between backend steps and shared steps only wh
 void test("no duplicate step ids in a full-featured composed run", () => {
   const spawner = new FakeProcessSpawner();
   const writer = new InMemoryProjectFileWriter();
-  const plan = fakeBackendPlan(spawner, writer, {
+  const plan = fakeProjectPlan(spawner, writer, {
     frontend: { packageManager: "npm", template: "react-ts", frontendPort: 5173 }
   });
 
@@ -97,7 +97,7 @@ void test("no duplicate step ids in a full-featured composed run", () => {
 void test("the composed README/gitignore/vscode-settings content matches the backend and frontend contributions", async () => {
   const spawner = new FakeProcessSpawner();
   const writer = new InMemoryProjectFileWriter();
-  const plan = fakeBackendPlan(spawner, writer, { frontend: { packageManager: "npm", template: "react-ts", frontendPort: 5173 } });
+  const plan = fakeProjectPlan(spawner, writer, { frontend: { packageManager: "npm", template: "react-ts", frontendPort: 5173 } });
 
   spawner.queueAutoSuccess(); // install-fake-framework
   spawner.queueAutoSuccess(); // scaffold-frontend

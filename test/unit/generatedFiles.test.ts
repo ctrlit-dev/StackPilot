@@ -75,6 +75,7 @@ void test("docs README explains the folder's purpose without being a tutorial", 
 });
 
 const backendSection = {
+  heading: "Backend setup",
   treeLines: ["├── backend/", "│   ├── .venv/", "│   ├── manage.py", "│   └── requirements.txt"],
   setupCommands: ["cd backend", ".venv\\Scripts\\activate   # Windows", "source .venv/bin/activate  # macOS/Linux", "python manage.py migrate", "python manage.py runserver 127.0.0.1:8000"],
   defaultUrlLine: "- Backend: http://127.0.0.1:8000/"
@@ -82,6 +83,7 @@ const backendSection = {
 const backendNotes = ["- The backend's virtual environment lives at `backend/.venv` and is not committed to Git."];
 
 const frontendSection = {
+  heading: "Frontend setup",
   treeLines: ["├── frontend/", "│   ├── src/", "│   └── package.json"],
   setupCommands: ["cd frontend", "npm install", "npm run dev"],
   defaultUrlLine: "- Frontend: http://127.0.0.1:5173/ (Vite may choose a different port if this one is busy)"

@@ -1,4 +1,4 @@
-import type { FrontendScaffoldRequest, ReadmeSection } from "./create/backendCreateModule";
+import type { FrontendScaffoldRequest, ReadmeSection } from "./create/projectCreateModule";
 import type { PackageManager } from "../detection/packageManagerDetector";
 import type { ProcessSpawner } from "../execution/processSpawner";
 import { buildViteScaffoldCommand, type ViteTemplate } from "../execution/viteScaffoldCommand";
@@ -52,6 +52,7 @@ export function buildViteFrontendSteps(options: ViteFrontendStepsOptions): Scaff
  */
 export function buildViteReadmeSection(request: FrontendScaffoldRequest): ReadmeSection {
   return {
+    heading: "Frontend setup",
     treeLines: ["├── frontend/", "│   ├── src/", "│   └── package.json"],
     setupCommands: [
       "cd frontend",
