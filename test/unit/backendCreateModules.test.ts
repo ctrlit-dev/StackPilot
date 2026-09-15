@@ -25,3 +25,7 @@ void test("every registered module has a non-empty id, label, and description, a
 void test("registers Django", () => {
   assert.ok(BACKEND_CREATE_MODULES.some((module) => module.id === "django"));
 });
+
+void test("registers FastAPI", () => {
+  assert.ok(BACKEND_CREATE_MODULES.some((module) => module.id === "fastapi"));
+});
