@@ -5,13 +5,13 @@ import { buildRequirementsTxtContent } from "../../generatedFiles";
 import { parseInstalledVersion } from "../../pipVersionParsing";
 import type { ScaffoldStep } from "../../scaffoldStep";
 import { commandCaptureStep, commandStep, writeFileStep } from "../../scaffoldSteps";
-import type { BackendCreateContext, BackendCreatePlan } from "../backendCreateModule";
+import type { ProjectCreateContext, ProjectCreatePlan } from "../projectCreateModule";
 import type { FastApiPreset } from "./fastApiNewProjectPresets";
 
 /**
  * FastAPI's own answers, collected by fastApiCreateInputs.ts and kept
- * entirely private to FastAPI's module - never exposed on BackendCreateModule
- * or BackendCreatePlan (plan §13.1). No package/module-name field exists -
+ * entirely private to FastAPI's module - never exposed on ProjectCreateModule
+ * or ProjectCreatePlan (plan §13.1). No package/module-name field exists -
  * the flat main.py layout (§9/§11 of the revalidated FastAPI plan) has
  * nothing analogous to name, unlike Django's package/starter-app inputs.
  */
@@ -29,7 +29,7 @@ export interface FastApiProjectPaths {
 }
 
 /** Only the facts FastAPI's pure planning half actually reads - mirrors django/djangoScaffoldPlan.ts's DjangoScaffoldContext. */
-export type FastApiScaffoldContext = Pick<BackendCreateContext, "parentDirectory" | "projectName" | "projectFileWriter" | "spawner" | "onOutput" | "configuration">;
+export type FastApiScaffoldContext = Pick<ProjectCreateContext, "parentDirectory" | "projectName" | "projectFileWriter" | "spawner" | "onOutput" | "configuration">;
 
 /**
  * Flat, project-root layout (revalidated FastAPI plan §9/§11): no backend/
@@ -58,10 +58,10 @@ export function resolveFastApiProjectPaths(context: FastApiScaffoldContext, inpu
  * projectStepsComposition.ts's composeProjectSteps()), no package/starter-app
  * steps. Builds only FastAPI's own steps (venv/pip/install/write) and its own
  * content contributions; any Vite frontend and the shared root files are
- * composed generically from this function's returned BackendCreatePlan. No
+ * composed generically from this function's returned ProjectCreatePlan. No
  * vscode import.
  */
-export function buildFastApiCreatePlan(context: FastApiScaffoldContext, inputs: FastApiInputs): BackendCreatePlan {
+export function buildFastApiCreatePlan(context: FastApiScaffoldContext, inputs: FastApiInputs): ProjectCreatePlan {
   const paths = resolveFastApiProjectPaths(context, inputs);
   const venvInterpreterPath = path.join(paths.venvPath, process.platform === "win32" ? "Scripts" : "bin", process.platform === "win32" ? "python.exe" : "python");
   const installedVersions: { fastapi?: string; uvicorn?: string } = {};
@@ -149,6 +149,7 @@ export function buildFastApiCreatePlan(context: FastApiScaffoldContext, inputs: 
     gitignoreEntries: [],
     readmeHeaderNote: `Generated with the **${inputs.preset.label}** preset.`,
     readmeSection: {
+      heading: "Backend setup",
       treeLines: ["├── main.py", "├── requirements.txt", `├── ${inputs.venvDirectoryName}/`],
       setupCommands: [
         `${inputs.venvDirectoryName}\\Scripts\\activate   # Windows`,

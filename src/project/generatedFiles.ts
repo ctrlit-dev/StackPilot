@@ -1,4 +1,4 @@
-import type { ReadmeSection } from "./create/backendCreateModule";
+import type { ReadmeSection } from "./create/projectCreateModule";
 
 export interface ComposeConfirmationSummaryOptions {
   readonly projectRoot: string;
@@ -100,7 +100,7 @@ export function composeReadmeContent(options: ComposeReadmeContentOptions): stri
   }
   lines.push("├── docs/", "├── .vscode/", "├── .gitignore", "└── README.md", "```", "");
 
-  lines.push("## Backend setup", "", "```sh", ...options.backendSection.setupCommands, "```", "");
+  lines.push(`## ${options.backendSection.heading}`, "", "```sh", ...options.backendSection.setupCommands, "```", "");
 
   if (options.frontendSection !== undefined) {
     lines.push("## Frontend setup", "", "```sh", ...options.frontendSection.setupCommands, "```", "");

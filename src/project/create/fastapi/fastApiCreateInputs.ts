@@ -3,7 +3,7 @@ import type { PackageManager } from "../../../detection/packageManagerDetector";
 import { detectPythonEnvironment, type PythonEnvironment } from "../../../detection/pythonDetector";
 import { showActionableError } from "../../../ui/notifications";
 import { validateFolderName } from "../../projectNameValidation";
-import type { BackendCreateContext } from "../backendCreateModule";
+import type { ProjectCreateContext } from "../projectCreateModule";
 import { DEFAULT_FASTAPI_PRESET_ID, FASTAPI_PRESETS, type FastApiPreset } from "./fastApiNewProjectPresets";
 import type { FastApiInputs } from "./fastApiScaffoldPlan";
 
@@ -23,7 +23,7 @@ const PACKAGE_MANAGER_CHOICES: readonly PackageManager[] = ["npm", "pnpm", "yarn
  * prompt and the final confirmation dialog are generic project-creation
  * concerns owned by the wizard, not a backend input.
  */
-export async function collectFastApiInputs(context: BackendCreateContext): Promise<FastApiInputs | undefined> {
+export async function collectFastApiInputs(context: ProjectCreateContext): Promise<FastApiInputs | undefined> {
   const preset = await pickPreset();
   if (preset === undefined) {
     return undefined;
@@ -82,7 +82,7 @@ async function pickPreset(): Promise<FastApiPreset | undefined> {
   return pick?.preset;
 }
 
-async function pickBasePython(context: BackendCreateContext): Promise<PythonEnvironment | undefined> {
+async function pickBasePython(context: ProjectCreateContext): Promise<PythonEnvironment | undefined> {
   // No project exists yet, so this only ever finds PATH-based interpreters -
   // same precondition and same underlying detectPythonEnvironment() call
   // django/djangoCreateInputs.ts's own pickBasePython() already makes.

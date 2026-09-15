@@ -5,13 +5,13 @@ import { buildRequirementsTxtContent } from "../../generatedFiles";
 import { parseInstalledVersion } from "../../pipVersionParsing";
 import type { ScaffoldStep } from "../../scaffoldStep";
 import { commandCaptureStep, commandStep, createDirectoryStep, writeFileStep } from "../../scaffoldSteps";
-import type { BackendCreateContext, BackendCreatePlan } from "../backendCreateModule";
+import type { ProjectCreateContext, ProjectCreatePlan } from "../projectCreateModule";
 import type { NewProjectPreset } from "./djangoNewProjectPresets";
 
 /**
  * Django's own answers, collected by djangoCreateInputs.ts and kept
- * entirely private to Django's module - never exposed on BackendCreateModule
- * or BackendCreatePlan (plan §13.1). Deliberately carries no `initializeGit` -
+ * entirely private to Django's module - never exposed on ProjectCreateModule
+ * or ProjectCreatePlan (plan §13.1). Deliberately carries no `initializeGit` -
  * that is a generic project-creation decision, collected and owned by the
  * generic wizard (CREATE-ARCH-1B.1 correction), not a Django input.
  */
@@ -32,7 +32,7 @@ export interface DjangoProjectPaths {
 }
 
 /** Only the facts Django's pure planning half actually reads - keeps this file's own tests free of an unused fileSystem/outputChannel fake. */
-export type DjangoScaffoldContext = Pick<BackendCreateContext, "parentDirectory" | "projectName" | "projectFileWriter" | "spawner" | "onOutput" | "configuration">;
+export type DjangoScaffoldContext = Pick<ProjectCreateContext, "parentDirectory" | "projectName" | "projectFileWriter" | "spawner" | "onOutput" | "configuration">;
 
 export function resolveDjangoProjectPaths(context: DjangoScaffoldContext, inputs: DjangoInputs): DjangoProjectPaths {
   const projectRoot = path.join(context.parentDirectory, context.projectName);
@@ -55,9 +55,9 @@ export function resolveDjangoProjectPaths(context: DjangoScaffoldContext, inputs
  * requirements) and Django's own content contributions; the project-root
  * directory, any Vite frontend, and the shared root files are no longer
  * built here - the generic composer (projectStepsComposition.ts) handles
- * those from this function's returned BackendCreatePlan. No vscode import.
+ * those from this function's returned ProjectCreatePlan. No vscode import.
  */
-export function buildDjangoCreatePlan(context: DjangoScaffoldContext, inputs: DjangoInputs): BackendCreatePlan {
+export function buildDjangoCreatePlan(context: DjangoScaffoldContext, inputs: DjangoInputs): ProjectCreatePlan {
   const paths = resolveDjangoProjectPaths(context, inputs);
   const venvInterpreterPath = path.join(paths.venvPath, process.platform === "win32" ? "Scripts" : "bin", process.platform === "win32" ? "python.exe" : "python");
   const installedVersions: { django?: string; drf?: string } = {};
@@ -171,6 +171,7 @@ export function buildDjangoCreatePlan(context: DjangoScaffoldContext, inputs: Dj
     gitignoreEntries: ["# Django", "db.sqlite3", "staticfiles/"],
     readmeHeaderNote: `Generated with the **${inputs.preset.label}** preset.`,
     readmeSection: {
+      heading: "Backend setup",
       treeLines: ["├── backend/", `│   ├── ${inputs.venvDirectoryName}/`, "│   ├── manage.py", "│   └── requirements.txt"],
       setupCommands: [
         "cd backend",
