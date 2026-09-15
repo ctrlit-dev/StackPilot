@@ -1,5 +1,6 @@
 import type { BackendCreateModule } from "./backendCreateModule";
 import { djangoCreateModule } from "./django/djangoCreateModule";
+import { fastApiCreateModule } from "./fastapi/fastApiCreateModule";
 
 /**
  * The one central registration point (plan §16/§30). Static imports only -
@@ -7,4 +8,4 @@ import { djangoCreateModule } from "./django/djangoCreateModule";
  * discovery. Adding a future backend means adding exactly one import line
  * and one array entry here, and nothing else central.
  */
-export const BACKEND_CREATE_MODULES: readonly BackendCreateModule[] = [djangoCreateModule];
+export const BACKEND_CREATE_MODULES: readonly BackendCreateModule[] = [djangoCreateModule, fastApiCreateModule];
