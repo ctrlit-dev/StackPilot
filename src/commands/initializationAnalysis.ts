@@ -102,9 +102,9 @@ export interface InitializationPlan {
  * The checklist's top-row label, named after the actually detected backend
  * framework (never a hard-coded "Django") - sourced from `facts.backendFramework`,
  * which is itself sourced from `getDjangoMetadata`/`getFastApiMetadata`, never
- * guessed from a filename. Falls back to the pre-existing "Django project
- * detected" text when nothing was detected at all (unchanged, pre-FastAPI
- * behavior for that case), and to a framework-neutral label for the
+ * guessed from a filename. Falls back to a framework-neutral "Backend project
+ * detected" label both when nothing was detected at all (including a
+ * deliberately backend-less standalone frontend project) and for the
  * currently-unreachable case of a detected backend whose framework this
  * checklist does not (yet) know how to name specifically - never claiming
  * Django for a backend that isn't Django.
@@ -116,7 +116,7 @@ function backendChecklistLabel(facts: InitializationFacts): string {
   if (facts.backendFramework === "django") {
     return "Django project detected";
   }
-  return facts.backendDetected ? "Backend project detected" : "Django project detected";
+  return "Backend project detected";
 }
 
 /**

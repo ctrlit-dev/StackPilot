@@ -445,7 +445,7 @@ export class DashboardPanelController implements vscode.Disposable {
       <div class="guide-grid">
         <div class="tip-card">
           <h3>1. Detect your project</h3>
-          <p>Opening a workspace with a <code>manage.py</code> and/or a frontend <code>package.json</code> auto-detects Django and Vite. If nothing shows up, run <strong>Refresh Detection</strong> after adding those files, or check <strong>Initialize Project</strong> if it's an existing, not-yet-wired-up project.</p>
+          <p>Opening a workspace with a Django or FastAPI backend and/or a Vite frontend auto-detects them. If nothing shows up, run <strong>Refresh Detection</strong> after adding those files, or check <strong>Initialize Project</strong> if it's an existing, not-yet-wired-up project.</p>
         </div>
         <div class="tip-card">
           <h3>2. Start &amp; stop servers</h3>
@@ -473,11 +473,11 @@ export class DashboardPanelController implements vscode.Disposable {
         </div>
         <div class="tip-card">
           <h3>8. Tests</h3>
-          <p>Both Django and frontend tests also show up in VS Code's native Testing panel (the flask icon). It's whole-suite, not per-test - parsing every possible test framework's output reliably wasn't realistic to get right.</p>
+          <p>Django and supported frontend tests appear in VS Code's native Testing panel (the flask icon). It's whole-suite, not per-test - parsing every possible test framework's output reliably wasn't realistic to get right.</p>
         </div>
         <div class="tip-card">
           <h3>9. New projects</h3>
-          <p><strong>New Project</strong> scaffolds a fresh Django + Vite project end-to-end (venv, starter app, npm/pnpm/yarn/bun frontend, optional git init) - nothing is created until you confirm the final summary.</p>
+          <p><strong>New Project</strong> scaffolds a fresh Django, FastAPI, or standalone React + Vite project end-to-end (virtual environment and frontend when applicable, your choice of npm/pnpm/yarn/bun, optional git init) - nothing is created until you confirm the final summary.</p>
         </div>
         <div class="tip-card">
           <h3>10. Auto-restart &amp; crash alerts</h3>

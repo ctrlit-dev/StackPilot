@@ -24,7 +24,7 @@ export async function runCreateVirtualEnvironment(context: CommandContext): Prom
 
   const backend = getBackendService(state.detectedProject);
   if (backend === undefined || state.detectedProject === undefined) {
-    showActionableError(context.outputChannel, "Create Virtual Environment could not run because no Django project was detected.");
+    showActionableError(context.outputChannel, "Create Virtual Environment could not run because no backend project was detected.");
     return false;
   }
 

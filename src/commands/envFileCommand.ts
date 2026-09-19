@@ -16,7 +16,7 @@ export function registerEnvFileCommands(context: CommandContext): vscode.Disposa
 async function openBackendEnvFile(context: CommandContext): Promise<void> {
   const backend = getBackendService(context.projectState.getState().detectedProject);
   if (backend === undefined) {
-    showActionableError(context.outputChannel, "The .env file could not be opened because no Django project was detected.");
+    showActionableError(context.outputChannel, "The .env file could not be opened because no backend project was detected.");
     return;
   }
   await openOrCreateEnvFile(context, backend.rootPath);

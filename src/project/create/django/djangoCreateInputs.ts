@@ -35,7 +35,7 @@ export async function collectDjangoInputs(context: ProjectCreateContext): Promis
   }
 
   const venvDirectoryName = await vscode.window.showInputBox({
-    title: "New Django + Vite Project: Virtual Environment Folder",
+    title: "New Django Project: Virtual Environment Folder",
     prompt: "Folder name for the virtual environment, created inside backend/",
     value: ".venv",
     validateInput: (value) => validationMessage(validateFolderName(value))
@@ -45,7 +45,7 @@ export async function collectDjangoInputs(context: ProjectCreateContext): Promis
   }
 
   const djangoPackageName = await vscode.window.showInputBox({
-    title: "New Django + Vite Project: Django Project Package Name",
+    title: "New Django Project: Django Project Package Name",
     prompt: "Python package name for the Django project (does not need to match the folder name)",
     value: "config",
     validateInput: (value) => validationMessage(validateDjangoAppName(value))
@@ -55,7 +55,7 @@ export async function collectDjangoInputs(context: ProjectCreateContext): Promis
   }
 
   const starterAppNameInput = await vscode.window.showInputBox({
-    title: "New Django + Vite Project: Starter App (Optional)",
+    title: "New Django Project: Starter App (Optional)",
     prompt: "Optional: name of an initial Django app to create now. Leave empty to skip.",
     validateInput: (value) => (value.length === 0 ? undefined : validationMessage(validateDjangoAppName(value)))
   });
@@ -68,7 +68,7 @@ export async function collectDjangoInputs(context: ProjectCreateContext): Promis
   if (preset.includesFrontend) {
     const pick = await vscode.window.showQuickPick(
       PACKAGE_MANAGER_CHOICES.map((manager) => ({ label: manager, manager })),
-      { title: "New Django + Vite Project: Choose a Package Manager" }
+      { title: "New Django Project: Choose a Package Manager" }
     );
     if (pick === undefined) {
       return undefined;
@@ -98,7 +98,7 @@ async function pickPreset(): Promise<NewProjectPreset | undefined> {
     description: preset.description,
     preset
   }));
-  const pick = await vscode.window.showQuickPick(items, { title: "New Django + Vite Project: Choose a Preset" });
+  const pick = await vscode.window.showQuickPick(items, { title: "New Django Project: Choose a Preset" });
   return pick?.preset;
 }
 
@@ -107,7 +107,7 @@ async function pickBasePython(context: ProjectCreateContext): Promise<PythonEnvi
   // (there is no backend/.venv to detect and no configured interpreter for
   // a project that does not exist).
   const detection = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: "New Django + Vite Project: Looking for a Python interpreter…" },
+    { location: vscode.ProgressLocation.Notification, title: "New Django Project: Looking for a Python interpreter…" },
     () => withTimeout(detectPythonEnvironment(context.fileSystem, process.cwd(), undefined, context.configuration), 10_000)
   );
   if (detection === "timeout") {
@@ -127,7 +127,7 @@ async function pickBasePython(context: ProjectCreateContext): Promise<PythonEnvi
 
   const pick = await vscode.window.showQuickPick(
     detection.candidates.map((candidate) => ({ label: candidate.executablePath, candidate })),
-    { title: "New Django + Vite Project: Choose a Python Interpreter" }
+    { title: "New Django Project: Choose a Python Interpreter" }
   );
   return pick?.candidate;
 }

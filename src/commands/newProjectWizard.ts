@@ -71,10 +71,10 @@ export async function runNewProjectWizard(context: CommandContext): Promise<void
   await createProject(context, projectPlan, projectName, initializeGit, outputSink, onOutput);
 }
 
-/** Generic - "should Git be initialized" has no backend-specific meaning (plan §32.1/§18). Wording/choices unchanged from the pre-CREATE-ARCH-1B.1 Django-owned prompt. */
+/** Generic - "should Git be initialized" has no backend-specific meaning (plan §32.1/§18). */
 async function pickGitChoice(): Promise<boolean | undefined> {
   const gitChoice = await vscode.window.showQuickPick(["Yes", "No"], {
-    title: "New Django + Vite Project: Initialize a Git repository?"
+    title: "New Project: Initialize a Git repository?"
   });
   if (gitChoice === undefined) {
     return undefined;
@@ -98,7 +98,7 @@ async function pickParentDirectory(): Promise<string | undefined> {
     canSelectFolders: true,
     canSelectFiles: false,
     canSelectMany: false,
-    title: "New Django + Vite Project: Choose Parent Directory",
+    title: "New Project: Choose Parent Directory",
     openLabel: "Choose Parent Directory"
   });
   return selection?.[0]?.fsPath;
@@ -106,7 +106,7 @@ async function pickParentDirectory(): Promise<string | undefined> {
 
 async function pickProjectName(context: CommandContext, parentDirectory: string): Promise<string | undefined> {
   return vscode.window.showInputBox({
-    title: "New Django + Vite Project: Project Folder Name",
+    title: "New Project: Project Folder Name",
     prompt: `The project will be created inside: ${parentDirectory}`,
     validateInput: async (value) => {
       const nameValidation = validateFolderName(value);

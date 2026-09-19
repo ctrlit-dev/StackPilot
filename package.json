@@ -1,7 +1,7 @@
 {
   "name": "stackpilot",
   "displayName": "StackPilot",
-  "description": "VS Code extension for managing local Django and Vite development workflows.",
+  "description": "Local development control center for VS Code with project detection, service management, project health, and tools for Django, FastAPI, and React + Vite.",
   "version": "0.0.3",
   "publisher": "ctrlit-dev",
   "icon": "resources/icon.png",
@@ -88,7 +88,7 @@
       },
       {
         "view": "stackPilot.tree",
-        "contents": "No Django or Vite project was detected in this workspace.\n[Create New Project](command:stackPilot.createProject)\n[Refresh Detection](command:stackPilot.refresh)\n[Open Settings](command:stackPilot.openSettings)",
+        "contents": "No supported project was detected in this workspace.\n[Create New Project](command:stackPilot.createProject)\n[Refresh Detection](command:stackPilot.refresh)\n[Open Settings](command:stackPilot.openSettings)",
         "when": "stackPilot.hasSelectedWorkspace && !stackPilot.hasBackend && !stackPilot.hasFrontend"
       }
     ],
@@ -120,14 +120,14 @@
       },
       {
         "command": "stackPilot.startBackend",
-        "title": "Start Django Server",
+        "title": "Start Backend Server",
         "category": "StackPilot",
         "icon": "$(play)",
         "enablement": "stackPilot.hasSelectedWorkspace && stackPilot.hasBackend && !stackPilot.backendRunning"
       },
       {
         "command": "stackPilot.stopBackend",
-        "title": "Stop Django Server",
+        "title": "Stop Backend Server",
         "category": "StackPilot",
         "icon": "$(debug-stop)",
         "enablement": "stackPilot.backendRunning"
@@ -148,7 +148,7 @@
       },
       {
         "command": "stackPilot.toggleBackend",
-        "title": "Toggle Django Server",
+        "title": "Toggle Backend Server",
         "category": "StackPilot",
         "enablement": "stackPilot.hasSelectedWorkspace && stackPilot.hasBackend"
       },
@@ -353,7 +353,7 @@
       },
       {
         "command": "stackPilot.createProject",
-        "title": "New Django + Vite Project…",
+        "title": "New Project…",
         "category": "StackPilot"
       },
       {
@@ -523,7 +523,7 @@
           "type": "string",
           "default": "127.0.0.1",
           "scope": "resource",
-          "description": "Host address for Django's development server. Use 127.0.0.1 by default for local development."
+          "description": "Host address for the backend development server. Use 127.0.0.1 by default for local development."
         },
         "stackPilot.backend.port": {
           "type": "integer",
@@ -531,7 +531,7 @@
           "minimum": 1,
           "maximum": 65535,
           "scope": "resource",
-          "description": "Port for Django's development server."
+          "description": "Port for the backend development server."
         },
         "stackPilot.frontend.port": {
           "type": "integer",

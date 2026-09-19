@@ -112,7 +112,7 @@ void test("a fully empty project only shows the two top-level not-detected rows"
   const plan = analyzeInitialization(facts());
   assert.deepEqual(
     plan.checklist.map((item) => item.label),
-    ["Django project detected", "Vite frontend detected"]
+    ["Backend project detected", "Vite frontend detected"]
   );
   assert.equal(plan.canCreateVenv, false);
   assert.equal(plan.canInstallPythonDependencies, false);
