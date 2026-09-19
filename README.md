@@ -1,195 +1,129 @@
 # StackPilot
 
-StackPilot is a VS Code extension for local Django + Vite development.
-It replaces the repetitive command-line work of running and setting up a
-Django backend and a Vite frontend with native VS Code UI: a tree view and a
-dashboard showing what is detected and what is running, commands for the
-everyday Django/Vite operations, and a wizard for scaffolding a brand-new
-Django + Vite project.
+Your local development control center for VS Code.
 
-It is a **local development tool**. It does not deploy anything, does not
-touch production infrastructure, and does not send any data anywhere - see
-[Known limitations](#known-limitations) for what is intentionally out of
-scope.
+StackPilot detects the Django, FastAPI, and React + Vite projects in your
+workspace, then gives you native VS Code commands to run, inspect, and
+manage them — so day-to-day development stops living in a terminal tab.
 
-## What it does
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.90.0-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
+[![GitHub stars](https://img.shields.io/github/stars/ctrlit-dev/StackPilot?style=flat-square&logo=github)](https://github.com/ctrlit-dev/StackPilot)
 
-- **Detects** an existing Django backend, Vite frontend, Python
-  interpreter/virtual environment, package manager (npm/pnpm/yarn/bun), and
-  Django apps in the open workspace - read-only, bounded to a small set of
-  known project layouts, never a general recursive scan.
-- **Starts/stops** the Django dev server and the Vite dev server as processes
-  this extension owns and tracks, with live status in the tree, dashboard,
-  and status bar, and output in dedicated terminals. It never kills a process
-  it did not start.
-- **Dashboard**: a dedicated editor tab (`StackPilot: Open Dashboard`)
-  with server status cards (host:port, a live log preview, Copy URL, Open
-  Admin), a migrations-pending indicator, quick-action tiles, the detected
-  Django apps, a Recent Activity feed, and a Help tab with a full usage guide.
-- Runs the everyday **Django operations**: Make Migrations, Migrate, Show
-  Migrations, Django Shell, Database Shell, Create Superuser, Create App
-  (offers to register it in `INSTALLED_APPS` automatically), Run Tests,
-  Install Python Dependencies, and a generic **Run Management Command** for
-  anything else `manage.py` supports.
-- Runs the everyday **frontend operations**: Install Dependencies, Build, Run
-  Tests (only offered when a matching `package.json` script actually exists),
-  and **Run Script…** for any other script in `package.json`.
-- **Django apps**: detected apps (folders with `apps.py`, or `models.py` +
-  `migrations/`) get their own row with per-app actions - migrations and
-  tests scoped to just that app.
-- **Environment files**: opens (or creates, seeded from a
-  `.env.example`/`.env.sample`/`.env.template`) each side's `.env` - an
-  existing `.env` is never overwritten.
-- **Debugging**: `Generate Debug Configuration` writes a debugpy + Chrome
-  `launch.json` (plus a combined compound when both sides are detected),
-  using the interpreter this extension already found.
-- **Testing**: Django and frontend tests also appear in VS Code's native
-  Testing panel (whole-suite, not per-test - see
-  [Known limitations](#known-limitations)).
-- **Reliability**: optional auto-restart after an unexpected crash (capped at
-  3 attempts with backoff, opt-in per side), and an immediate crash
-  notification with Restart/Show Output actions when auto-restart is off.
-- **Initializes an existing/cloned project**: shows a checklist of what is
-  missing (virtual environment, dependencies, `node_modules`) and lets you
-  pick which setup steps to run.
-- **Creates a new Django + Vite project** from a wizard: choose a preset
-  (Django only / Django + Vite React / Django + Vite React + TypeScript /
-  Django REST API + Vite React + TypeScript), review a summary, then a real
-  virtual environment, Django project, and Vite frontend are scaffolded with
-  a `.gitignore`, README, `docs/` folder, minimal `.vscode/settings.json`,
-  and optional `git init`.
+Detect your services. Start and stop them. Check project health. Run
+framework operations. Scaffold new projects. All without leaving the editor.
 
-## Supported workflows
+## Key features
 
-| Workflow | How |
-|---|---|
-| Open an existing Django/Vite project | Open the folder; detection runs automatically. |
-| Start developing | `Start All` (`Ctrl+Alt+R` / `Cmd+Alt+R`), or start backend/frontend individually. |
-| Get an overview at a glance | `StackPilot: Open Dashboard` (`Ctrl+Alt+D` / `Cmd+Alt+D`). |
-| Run a migration | `StackPilot: Migrate`, or click the "Unapplied migrations" hint in the dashboard. |
-| Open the running app | `StackPilot: Open Application` (external browser) or `Open in Simple Browser` (inside VS Code). |
-| Open the Django admin | `StackPilot: Open Admin`, once the backend is running. |
-| Run any manage.py command | `StackPilot: Run Django Management Command…`. |
-| Set up a project you just cloned | `StackPilot: Initialize Project`. |
-| Start a brand-new project | `StackPilot: New Django + Vite Project…`. |
-| Generate a debug config | `StackPilot: Generate Debug Configuration`. |
+### Run your stack
+Start, stop, and restart detected Django, FastAPI, and Vite dev servers as
+processes StackPilot owns and tracks — live status in the tree, dashboard,
+and status bar, output in dedicated terminals, and optional auto-restart
+after an unexpected crash.
 
-Every action above is also a Command Palette entry named
-`StackPilot: …`; the tree and dashboard are conveniences, not the only
-way in.
+### Understand your project
+Read-only, automatic detection of your backend framework, frontend tooling,
+Python interpreter/virtual environment, and package manager. A Project
+Health view surfaces issues like a missing interpreter, uninstalled
+dependencies, or pending Django migrations.
 
-## Keyboard shortcuts
+### Work with your framework
+Full Django tooling — migrations, Django shell, database shell, superuser
+creation, app scaffolding, tests, dependency install, and any `manage.py`
+command — plus generic frontend operations (install, build, test, run any
+script) for a detected Vite/Node project.
 
-| Shortcut (Win/Linux) | Shortcut (macOS) | Action |
-|---|---|---|
-| `Ctrl+Alt+R` | `Cmd+Alt+R` | Start All |
-| `Ctrl+Alt+Shift+R` | `Cmd+Alt+Shift+R` | Stop All |
-| `Ctrl+Alt+D` | `Cmd+Alt+D` | Open Dashboard |
+### Create projects
+Scaffold a new **Django**, **FastAPI**, or standalone **React + Vite**
+project from a single wizard, with presets for adding a Vite + React
+(optionally TypeScript) frontend to a Python backend.
 
-Rebind any of these from VS Code's Keyboard Shortcuts editor.
+### Stay inside VS Code
+A dedicated dashboard tab, an activity-bar tree view, a Command Palette
+entry for every action, debug configuration generation, and Django/frontend
+tests in VS Code's native Testing panel.
 
-## Installation for development
+## Supported stacks
 
-```sh
-npm install
-```
+| Stack | Create | Detect | Run | Framework tools |
+|---|---|---|---|---|
+| Django | Yes | Yes | Yes | Migrations, shell, DB shell, superuser, app scaffolding, tests, dependency install, management commands |
+| FastAPI | Yes | Yes | Yes | None yet |
+| React + Vite | Yes | Yes | Yes | Install, build, test (when scripted), run any script |
 
-Then press `F5` in VS Code to launch an Extension Development Host with the
-extension loaded. See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for the
-full development workflow and [`docs/TESTING.md`](docs/TESTING.md) for how
-the test suite is structured.
+Frontend tooling works with npm, pnpm, yarn, or bun, detected from your
+lockfile.
 
-Quality checks:
+## Quick start
 
-```sh
-npm run compile
-npm run lint
-npm run test:unit
-npm run test:integration
-```
+1. Open a workspace containing a supported project — StackPilot detects it
+   automatically.
+2. Open the dashboard (`Ctrl+Alt+D` / `Cmd+Alt+D`) or use the StackPilot view
+   in the Activity Bar.
+3. Start everything with **Start All** (`Ctrl+Alt+R` / `Cmd+Alt+R`), or start
+   each side individually.
 
-## Installing a local `.vsix`
+Every action is also available from the Command Palette as `StackPilot: …`.
 
-```sh
-npm run vsix
-code --install-extension stackpilot-0.0.1.vsix
-```
+**Starting from scratch?** Run `StackPilot: New Project…` and choose
+Django, FastAPI, or React + Vite.
 
-(or use the Extensions view's "Install from VSIX..." command). This is not
-yet published to the Marketplace.
+## Project creation
+
+The **New Project** wizard scaffolds a real project on disk: a virtual
+environment and Django/FastAPI project for a Python backend, a Vite
+frontend when you add one, a `.gitignore`, README, and minimal
+`.vscode/settings.json` — with a review step before anything is created.
+
+- **Django** — plain, or paired with a Vite + React frontend (JavaScript or
+  TypeScript), optionally with Django REST Framework.
+- **FastAPI** — plain, or paired with a Vite + React + TypeScript frontend.
+- **React + Vite** — a standalone frontend project, no backend.
+
+## Project health
+
+StackPilot checks your Python interpreter, framework dependencies (Django
+or FastAPI), Node dependencies/package manager, and — for Django — pending
+migrations. Results appear in the tree's Diagnostics section and the
+dashboard's Project Health panel.
+
+## Local-first
+
+StackPilot is a local development tool. It doesn't deploy anything, doesn't
+touch production infrastructure, and doesn't send data anywhere. It only
+ever stops processes it started itself, and every setting that affects what
+gets executed is a restricted configuration under Workspace Trust.
 
 ## Settings
 
-All settings live under `stackPilot.*` and are workspace-scoped. Every
-path setting is relative to the selected workspace folder unless it is
-already absolute. Every setting in the table below is also a *restricted*
-configuration under Workspace Trust, so an untrusted workspace's
-`.vscode/settings.json` cannot redirect what gets executed or where.
-
-| Setting | Default | Purpose |
-|---|---|---|
-| `stackPilot.backend.directory` | `backend` | Django backend directory. |
-| `stackPilot.backend.managePy` | `backend/manage.py` | Path to `manage.py`, overrides auto-detection. |
-| `stackPilot.python.interpreter` | *(empty)* | Explicit interpreter path; leave empty to auto-detect a venv or PATH interpreter. |
-| `stackPilot.python.venvDirectory` | `backend/.venv` | Preferred virtual environment location (also used by Create Virtual Environment). |
-| `stackPilot.frontend.directory` | `frontend` | Vite frontend directory. |
-| `stackPilot.frontend.packageManager` | `auto` | `auto`, `npm`, `pnpm`, `yarn`, or `bun`. |
-| `stackPilot.frontend.devScript` | `dev` | `package.json` script used to start the frontend. |
-| `stackPilot.frontend.buildScript` | `build` | `package.json` script used for Build Frontend. |
-| `stackPilot.frontend.testScript` | `test` | `package.json` script used for Run Frontend Tests, if present. |
-| `stackPilot.backend.host` | `127.0.0.1` | Host for `manage.py runserver`. |
-| `stackPilot.backend.port` | `8000` | Port for the Django dev server. |
-| `stackPilot.frontend.port` | `5173` | Preferred Vite port (Vite may still pick a different one). |
-| `stackPilot.openBrowserOnStart` | `false` | When `true`, offers an "Open in Browser" button after a server starts successfully; a browser is never opened without that explicit click. |
-| `stackPilot.backend.autoRestartOnCrash` | `false` | Automatically restart the Django server after an unexpected exit (not a manual stop). Gives up after 3 consecutive crashes. |
-| `stackPilot.frontend.autoRestartOnCrash` | `false` | Same as above, for the frontend server. |
+Settings live under `stackPilot.*` (backend/frontend directories, ports,
+package manager, auto-restart, and more), are workspace-scoped, and are
+searchable from VS Code's Settings UI.
 
 ## Known limitations
 
-- **pnpm/yarn/bun New Project scaffolding** is implemented per Vite's
-  official documentation but was not independently smoke-tested in the
-  environment this was built in (only npm was installed there); npm's
-  scaffold path was verified against the real tool.
-- **Vite's actual dev server URL** is parsed from its own stdout
-  (`Local: http://...`) once available; until the first such line arrives,
-  `Open Application` falls back to the configured port, which Vite may not
-  actually be using if that port was busy.
-- **New Project cancellation** stops the run before the next step starts; a
-  step already in progress (e.g. a slow `pip install`) still completes first
-  rather than being aborted mid-flight.
-- **Automatic Python-dependency-installed detection** (used by `Initialize
-  Project`) checks whether Django is importable from the virtual
-  environment's `site-packages`, not whether `requirements.txt` exactly
-  matches what is installed - parsing arbitrary `requirements.txt` syntax
-  (version specifiers, extras, `-r` includes, environment markers) reliably
-  was judged too fragile to be worth the risk of a wrong answer.
-- **Poetry/uv/Pipenv projects**: `Install Python Dependencies` recognizes
-  these (via `pyproject.toml`/`uv.lock`/`poetry.lock`/`Pipfile`) and
-  deliberately refuses to run a guessed `pip install` against them rather
-  than doing the wrong thing; install those dependencies with that tool
-  directly.
-- **Django app detection** is filesystem-based (`apps.py`, or `models.py` +
-  `migrations/`), not a parse of `INSTALLED_APPS` in `settings.py` - the
-  latter can be split across modules or computed dynamically, which was
-  judged too fragile to parse reliably.
-- **`INSTALLED_APPS` auto-registration** only handles a single, plain
-  multi-line list in exactly one `settings.py` it can find unambiguously; it
-  never guesses when the file, or the list, isn't in that shape - you get a
-  message to add the app yourself instead.
-- **Migrations-pending indicator** is powered entirely by `manage.py migrate
-  --check`'s exit code (0/1), not a parsed migration count - Django's own
-  flag doesn't report one. A database that is unreachable can also exit
-  non-zero; the indicator only shows "pending" when stderr is empty, but a
-  genuinely broken database connection may still need a look at Show Output.
-- **Test Explorer integration** is whole-suite, not per-test: Django's runner
-  and whichever frontend framework is in use each have their own output
-  format, and reliably parsing every one of them into a per-test tree wasn't
-  realistic to get right.
-- **Integration tests** (`npm run test:integration`) require a real
-  Electron-capable environment; see [`docs/TESTING.md`](docs/TESTING.md) for
-  a sandbox limitation encountered while building this extension.
-- No production/deployment operations of any kind are provided or planned -
-  this is a local development tool only.
+- FastAPI support currently covers detection, start/stop, and project
+  health — it doesn't yet have Django-equivalent tooling (migrations,
+  shell, dependency install) or debug configuration generation.
+- Testing panel integration is whole-suite, not per-test.
+- Automatic dependency-installed detection checks whether the framework
+  package is importable, not whether `requirements.txt` exactly matches
+  what's installed; Poetry/uv/Pipenv projects are detected but not
+  auto-installed.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full picture.
+
+## Development
+
+```sh
+npm install
+npm run compile
+npm test
+```
+
+Press `F5` to launch an Extension Development Host. See
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for the full workflow and
+[`docs/TESTING.md`](docs/TESTING.md) for how the test suite is structured.
 
 ## License
 
