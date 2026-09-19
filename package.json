@@ -2,7 +2,7 @@
   "name": "stackpilot",
   "displayName": "StackPilot",
   "description": "VS Code extension for managing local Django and Vite development workflows.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "ctrlit-dev",
   "icon": "resources/icon.png",
   "license": "MIT",

@@ -3,6 +3,22 @@
 All notable changes to the "StackPilot" extension are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.0.3] - 2026-09-19
+
+### Added
+- **FastAPI support**: detection (a `main.py`/`app/main.py` entry point with a `FastAPI()` instantiation and a matching dependency), and starting/stopping the dev server via `uvicorn`. FastAPI backends are not yet covered by the Django-specific tooling below (migrations, shell, dependency install, debug configuration).
+- **New Project** wizard now asks which project type to create - **Django**, **FastAPI**, or standalone **React + Vite** - instead of always scaffolding Django + Vite.
+- FastAPI project creation, plain or paired with a Vite + React + TypeScript frontend.
+- Standalone **React + Vite** project creation (no backend), with a choice of the `react` or `react-ts` template and a package manager.
+- **Project Health**: a new diagnostics view, in both the tree (a "Diagnostics" section) and the dashboard (a "Project Health" panel), checking the Python interpreter, framework dependencies (Django or FastAPI), Node dependencies/package manager, and - for Django - pending migrations.
+- Dashboard **Dev Tools** tab with 10 built-in developer utilities: Regex Tester, Case Converter, JSON Formatter, Base64/URL encoder, cURL converter (Fetch/Axios/Python), Color Picker/Gradient Builder, Tailwind class optimizer, SVG-to-CSS converter, JWT inspector, and a bcrypt Password Hasher/Verifier.
+
+### Fixed
+- **Initialize Project** now detects and reports FastAPI projects correctly instead of assuming every backend is Django.
+
+### Changed
+- Project detection, process lifecycle (start/stop/restart, auto-restart-on-crash), and project initialization are now framework-generic internally, so the same machinery drives both Django and FastAPI.
+
 ## [0.0.2] - 2026-09-13
 
 ### Fixed
