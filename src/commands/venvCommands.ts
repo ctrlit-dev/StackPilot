@@ -28,6 +28,19 @@ export async function runCreateVirtualEnvironment(context: CommandContext): Prom
     return false;
   }
 
+  // EXPRESS-1C: execution-level guard, not just UI-gating (package.json's
+  // `enablement` and the Tree's own row only control discoverability - a
+  // command is always programmatically invocable regardless). A Node-runtime
+  // backend (Express) has nothing for a Python virtual environment to do;
+  // refuse before any Python lookup, process spawn, or filesystem mutation.
+  if (backend.runtime?.kind !== "python") {
+    showActionableError(
+      context.outputChannel,
+      "Create Virtual Environment could not run because the detected backend is not a Python project."
+    );
+    return false;
+  }
+
   const targetVenvPath = resolveWorkspacePath(state.detectedProject.workspaceRootPath, state.configuration.pythonVenvDirectory);
 
   const health = await checkVenvHealth(context.fileSystem, targetVenvPath);

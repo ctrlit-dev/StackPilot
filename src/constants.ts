@@ -54,6 +54,7 @@ export const CONTEXT_WORKSPACE_AMBIGUOUS = "stackPilot.workspaceAmbiguous";
 export const CONTEXT_WORKSPACE_TRUSTED = "stackPilot.workspaceTrusted";
 export const CONTEXT_HAS_BACKEND = "stackPilot.hasBackend";
 export const CONTEXT_HAS_DJANGO_BACKEND = "stackPilot.hasDjangoBackend";
+export const CONTEXT_HAS_PYTHON_BACKEND = "stackPilot.hasPythonBackend";
 export const CONTEXT_HAS_FRONTEND = "stackPilot.hasFrontend";
 export const CONTEXT_HAS_PYTHON = "stackPilot.hasPython";
 export const CONTEXT_BACKEND_RUNNING = "stackPilot.backendRunning";

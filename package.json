@@ -269,7 +269,7 @@
         "command": "stackPilot.installPythonDependencies",
         "title": "Install Python Dependencies",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasPythonBackend"
       },
       {
         "command": "stackPilot.installFrontendDependencies",
@@ -343,7 +343,7 @@
         "command": "stackPilot.createVirtualEnvironment",
         "title": "Create Virtual Environment",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasPythonBackend"
       },
       {
         "command": "stackPilot.initializeProject",

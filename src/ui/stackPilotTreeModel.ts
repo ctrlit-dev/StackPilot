@@ -259,7 +259,14 @@ function buildEnvironmentSection(input: TreeModelInput): TreeNode[] {
     }
   ];
 
-  if (getBackendService(input.detectedProject) !== undefined && python?.source !== "venv") {
+  // EXPRESS-1C: only a Python-runtime backend (Django/FastAPI) can ever use
+  // a virtual environment - a Node-runtime backend (Express) must never see
+  // this row, regardless of whether the workspace has no venv-sourced
+  // Python at all. This row is built independently of the
+  // `stackPilot.hasPythonBackend` context key (it is plain TypeScript, not
+  // a `package.json` `when`/`enablement` clause), so it needs its own guard.
+  const backend = getBackendService(input.detectedProject);
+  if (backend !== undefined && backend.runtime?.kind === "python" && python?.source !== "venv") {
     children.push({
       id: "environment.createVenv",
       label: "Create Virtual Environment",

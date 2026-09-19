@@ -40,6 +40,22 @@ function viteService(): DetectedService {
   };
 }
 
+function expressService(): DetectedService {
+  return {
+    id: "backend",
+    rootPath: "/workspace",
+    frameworkId: "express",
+    runtime: {
+      kind: "node",
+      packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+      packageJsonPath: "/workspace/package.json",
+      scripts: { dev: "node app.js" }
+    },
+    score: 80,
+    evidence: ["app.js"]
+  };
+}
+
 function descriptor(state: ManagedProcessDescriptor["state"]): ManagedProcessDescriptor {
   return { kind: "backend", state, expectedPort: 8000 };
 }
@@ -92,5 +108,30 @@ void test("FastAPI + Vite: both stat cards carry their own framework label indep
   const backendHtml = serverStatCard("Backend", "server-process", true, descriptor("running"), "toggle", "127.0.0.1", [], [], frameworkDisplayLabel(fastApiService()));
   const frontendHtml = serverStatCard("Frontend", "browser", true, descriptor("running"), "toggle", undefined, [], [], frameworkDisplayLabel(viteService()));
   assert.match(backendHtml, /Backend · FastAPI/);
+  assert.match(frontendHtml, /Frontend · Vite/);
+});
+
+// --- EXPRESS-1C ---
+
+void test("Express backend renders 'Backend · Express' while running", () => {
+  const html = serverStatCard("Backend", "server-process", true, descriptor("running"), "toggle", "127.0.0.1", [], [], frameworkDisplayLabel(expressService()));
+  assert.match(html, /Backend · Express/);
+});
+
+void test("Express backend renders 'Backend · Express' while stopped - framework identity comes from detection state, not process state", () => {
+  const html = serverStatCard("Backend", "server-process", true, descriptor("stopped"), "toggle", "127.0.0.1", [], [], frameworkDisplayLabel(expressService()));
+  assert.match(html, /Backend · Express/);
+  assert.match(html, /Stopped/);
+});
+
+void test("Express backend's extra actions do not include Open Admin", () => {
+  const actions = backendExtraActions(expressService());
+  assert.ok(!actions.some((action) => action.commandId === COMMAND_OPEN_ADMIN));
+});
+
+void test("Express + Vite: both stat cards carry their own framework label independently", () => {
+  const backendHtml = serverStatCard("Backend", "server-process", true, descriptor("running"), "toggle", "127.0.0.1", [], [], frameworkDisplayLabel(expressService()));
+  const frontendHtml = serverStatCard("Frontend", "browser", true, descriptor("running"), "toggle", undefined, [], [], frameworkDisplayLabel(viteService()));
+  assert.match(backendHtml, /Backend · Express/);
   assert.match(frontendHtml, /Frontend · Vite/);
 });

@@ -6,6 +6,7 @@ import {
   CONTEXT_HAS_DJANGO_BACKEND,
   CONTEXT_HAS_FRONTEND,
   CONTEXT_HAS_PYTHON,
+  CONTEXT_HAS_PYTHON_BACKEND,
   CONTEXT_HAS_SELECTED_WORKSPACE,
   CONTEXT_HAS_WORKSPACE,
   CONTEXT_WORKSPACE_AMBIGUOUS,
@@ -20,17 +21,22 @@ export async function updateWorkspaceContextKeys(
   workspaceTrusted: boolean,
   detectedProject?: DetectedProject
 ): Promise<void> {
+  const backend = getBackendService(detectedProject);
+
   await Promise.all([
     vscode.commands.executeCommand("setContext", CONTEXT_HAS_WORKSPACE, selection.kind !== "none"),
     vscode.commands.executeCommand("setContext", CONTEXT_HAS_SELECTED_WORKSPACE, selection.kind === "selected"),
     vscode.commands.executeCommand("setContext", CONTEXT_WORKSPACE_AMBIGUOUS, selection.kind === "ambiguous"),
     vscode.commands.executeCommand("setContext", CONTEXT_WORKSPACE_TRUSTED, workspaceTrusted),
-    vscode.commands.executeCommand("setContext", CONTEXT_HAS_BACKEND, getBackendService(detectedProject) !== undefined),
-    vscode.commands.executeCommand(
-      "setContext",
-      CONTEXT_HAS_DJANGO_BACKEND,
-      getDjangoMetadata(getBackendService(detectedProject)) !== undefined
-    ),
+    vscode.commands.executeCommand("setContext", CONTEXT_HAS_BACKEND, backend !== undefined),
+    vscode.commands.executeCommand("setContext", CONTEXT_HAS_DJANGO_BACKEND, getDjangoMetadata(backend) !== undefined),
+    // EXPRESS-1C: "the detected backend service itself carries a Python
+    // runtime" - never "some Python interpreter happens to be resolved"
+    // (that would make this key false for a Django project that has no venv
+    // yet, defeating the exact "Create Virtual Environment" action it
+    // gates) and never "workspace-wide Python was found anywhere" (that is
+    // CONTEXT_HAS_PYTHON, a separate, pre-existing, unrelated key).
+    vscode.commands.executeCommand("setContext", CONTEXT_HAS_PYTHON_BACKEND, backend !== undefined && backend.runtime?.kind === "python"),
     vscode.commands.executeCommand("setContext", CONTEXT_HAS_FRONTEND, getFrontendService(detectedProject) !== undefined),
     vscode.commands.executeCommand("setContext", CONTEXT_HAS_PYTHON, detectedProject?.pythonRuntime.selected !== undefined)
   ]);

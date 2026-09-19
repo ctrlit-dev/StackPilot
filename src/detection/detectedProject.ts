@@ -141,12 +141,14 @@ export function getDjangoBackendProject(service: DetectedService | undefined): B
 
 /**
  * The short, user-facing technology name for a detected service - "Django",
- * "FastAPI", "Vite", or `undefined` when no framework was identified. Reuses
- * the same narrowing helpers every other framework-specific check in this
- * file already uses; Vite has no `FrameworkMetadata` variant, so it is the
- * one case narrowed directly on `frameworkId` rather than on metadata `.kind`.
- * Never returns "React" - detection only ever confirms Vite (see
- * `adapters/viteFrontendDetection.ts`), not the framework built on top of it.
+ * "FastAPI", "Express", "Vite", or `undefined` when no framework was
+ * identified. Reuses the same narrowing helpers every other framework-
+ * specific check in this file already uses; Vite and Express both have no
+ * `FrameworkMetadata` variant, so they are narrowed directly on
+ * `frameworkId` rather than on metadata `.kind` (EXPRESS-1C - same
+ * precedent Vite already established). Never returns "React" - detection
+ * only ever confirms Vite (see `adapters/viteFrontendDetection.ts`), not the
+ * framework built on top of it.
  */
 export function frameworkDisplayLabel(service: DetectedService | undefined): string | undefined {
   if (getDjangoMetadata(service) !== undefined) {
@@ -157,6 +159,9 @@ export function frameworkDisplayLabel(service: DetectedService | undefined): str
   }
   if (service?.frameworkId === "vite") {
     return "Vite";
+  }
+  if (service?.frameworkId === "express") {
+    return "Express";
   }
   return undefined;
 }

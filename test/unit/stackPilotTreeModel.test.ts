@@ -359,6 +359,57 @@ void test("does not offer to create a virtual environment without a detected bac
   assert.equal(findNode(tree, "environment.createVenv"), undefined);
 });
 
+void test("EXPRESS-1C: offers to create a virtual environment for a FastAPI backend without a venv (Python-family, not just Django)", () => {
+  const project: DetectedProject = {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: "backend",
+        rootPath: "/workspace",
+        frameworkId: "fastapi",
+        runtime: { kind: "python", detection: { selected: undefined, candidates: [], diagnostics: [] } },
+        frameworkMetadata: { kind: "fastapi", appImport: "main:app" },
+        score: 80,
+        evidence: ["main.py"]
+      }
+    ],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const tree = buildStackPilotTree(baseInput({ detectedProject: project }));
+  assert.ok(findNode(tree, "environment.createVenv") !== undefined);
+});
+
+void test("EXPRESS-1C: never offers to create a virtual environment for a detected Express backend (Node runtime), even with no venv-sourced Python anywhere in the workspace", () => {
+  const project: DetectedProject = {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: "backend",
+        rootPath: "/workspace",
+        frameworkId: "express",
+        runtime: {
+          kind: "node",
+          packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+          packageJsonPath: "/workspace/package.json",
+          scripts: { dev: "node app.js" }
+        },
+        score: 80,
+        evidence: ["app.js"]
+      }
+    ],
+    // No selected Python at all (python?.source !== "venv" is true here too)
+    // - proving the fix is not merely "was already true before", it is a
+    // real, independent guard on the backend's own runtime.
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const tree = buildStackPilotTree(baseInput({ detectedProject: project }));
+  assert.equal(findNode(tree, "environment.createVenv"), undefined);
+});
+
 // --- Diagnostics ---
 
 const migrationsPendingDiagnostic: DiagnosticResult = {

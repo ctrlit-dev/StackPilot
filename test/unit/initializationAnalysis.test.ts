@@ -99,9 +99,14 @@ function facts(overrides: Partial<InitializationFacts> = {}): InitializationFact
   return {
     backendDetected: false,
     backendFramework: undefined,
+    // Matches every pre-existing test's implicit (pre-Express) assumption
+    // that a detected backend is Python-family unless a test says
+    // otherwise - only new Express-specific tests override this.
+    backendRuntimeKind: "python",
     requirementsFileDetected: false,
     venvDetected: false,
     pythonDependenciesInstalled: undefined,
+    backendNodeModulesDetected: undefined,
     frontendDetected: false,
     nodeModulesDetected: undefined,
     ...overrides
@@ -133,6 +138,67 @@ void test("labels the top row 'FastAPI project detected' when the detected backe
 void test("falls back to a framework-neutral label when a backend is detected but its framework is unrecognized", () => {
   const plan = analyzeInitialization(facts({ backendDetected: true, backendFramework: undefined }));
   assert.equal(plan.checklist[0]?.label, "Backend project detected");
+});
+
+void test("labels the top row 'Express project detected' when the detected backend is Express, not Django/FastAPI (EXPRESS-1C)", () => {
+  const plan = analyzeInitialization(facts({ backendDetected: true, backendFramework: "express", backendRuntimeKind: "node" }));
+  assert.equal(plan.checklist[0]?.label, "Express project detected");
+  assert.ok(!plan.checklist.some((item) => item.label === "Django project detected" || item.label === "FastAPI project detected"));
+});
+
+void test("EXPRESS-1C: a Node-runtime backend never offers Create Virtual Environment, even though venvDetected is falsy for it too", () => {
+  const plan = analyzeInitialization(
+    facts({ backendDetected: true, backendFramework: "express", backendRuntimeKind: "node", venvDetected: false })
+  );
+  assert.equal(plan.canCreateVenv, false);
+});
+
+void test("EXPRESS-1C: a Node-runtime backend never offers Install Python Dependencies, even if requirementsFileDetected were somehow true", () => {
+  const plan = analyzeInitialization(
+    facts({
+      backendDetected: true,
+      backendFramework: "express",
+      backendRuntimeKind: "node",
+      requirementsFileDetected: true,
+      pythonDependenciesInstalled: false
+    })
+  );
+  assert.equal(plan.canInstallPythonDependencies, false);
+});
+
+void test("EXPRESS-1C: a Node-runtime backend's checklist shows 'node_modules present', never Virtual environment/requirements.txt rows", () => {
+  const notPresent = analyzeInitialization(
+    facts({ backendDetected: true, backendFramework: "express", backendRuntimeKind: "node", backendNodeModulesDetected: false })
+  );
+  assert.deepEqual(
+    notPresent.checklist.map((item) => item.label),
+    ["Express project detected", "node_modules present", "Vite frontend detected"]
+  );
+  assert.equal(notPresent.checklist[1]?.done, false);
+
+  const present = analyzeInitialization(
+    facts({ backendDetected: true, backendFramework: "express", backendRuntimeKind: "node", backendNodeModulesDetected: true })
+  );
+  assert.equal(present.checklist[1]?.done, true);
+});
+
+void test("EXPRESS-1C: backend and frontend node_modules facts stay independent for Express + Vite", () => {
+  const plan = analyzeInitialization(
+    facts({
+      backendDetected: true,
+      backendFramework: "express",
+      backendRuntimeKind: "node",
+      backendNodeModulesDetected: false,
+      frontendDetected: true,
+      nodeModulesDetected: true
+    })
+  );
+
+  const backendRow = plan.checklist.find((item) => item.label === "node_modules present" && plan.checklist.indexOf(item) === 1);
+  const frontendRow = plan.checklist[plan.checklist.length - 1];
+  assert.equal(backendRow?.done, false);
+  assert.equal(frontendRow?.label, "node_modules present");
+  assert.equal(frontendRow?.done, true);
 });
 
 void test("offers to create a venv when a backend is detected but no venv exists", () => {
@@ -319,4 +385,106 @@ void test("gatherInitializationFacts detects requirements.txt evidence from the 
     DEFAULT_CONFIGURATION
   );
   assert.equal(result.requirementsFileDetected, true);
+});
+
+// --- gatherInitializationFacts (impure) - Express (EXPRESS-1C) ---
+
+function expressBackendService(rootPath: string, evidence: readonly string[] = ["app.js"]): DetectedService {
+  return {
+    id: "backend",
+    rootPath,
+    frameworkId: "express",
+    runtime: {
+      kind: "node",
+      packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+      packageJsonPath: path.join(rootPath, "package.json"),
+      scripts: { dev: "node app.js" }
+    },
+    score: 80,
+    evidence
+  };
+}
+
+void test("gatherInitializationFacts: an Express-only workspace reports backendFramework 'express', backendRuntimeKind 'node', and no Python facts", async () => {
+  const backendRoot = path.join(workspaceRoot, "backend");
+  const fs = new InMemoryFileSystemProbe().addDirectory(path.join(backendRoot, "node_modules"));
+  const project: DetectedProject = {
+    workspaceRootPath: workspaceRoot,
+    services: [expressBackendService(backendRoot)],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const result = await gatherInitializationFacts(fs, workspaceRoot, project, DEFAULT_CONFIGURATION);
+
+  assert.equal(result.backendFramework, "express");
+  assert.equal(result.backendRuntimeKind, "node");
+  assert.equal(result.venvDetected, false);
+  assert.equal(result.requirementsFileDetected, false);
+  assert.equal(result.pythonDependenciesInstalled, undefined);
+  assert.equal(result.backendNodeModulesDetected, true);
+});
+
+void test("gatherInitializationFacts: an Express backend's node_modules is reported missing when absent", async () => {
+  const backendRoot = path.join(workspaceRoot, "backend");
+  const fs = new InMemoryFileSystemProbe();
+  const project: DetectedProject = {
+    workspaceRootPath: workspaceRoot,
+    services: [expressBackendService(backendRoot)],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const result = await gatherInitializationFacts(fs, workspaceRoot, project, DEFAULT_CONFIGURATION);
+  assert.equal(result.backendNodeModulesDetected, false);
+});
+
+void test("gatherInitializationFacts: requirementsFileDetected stays false for an Express backend even if 'requirements.txt' coincidentally appears in its evidence", async () => {
+  const backendRoot = path.join(workspaceRoot, "backend");
+  const fs = new InMemoryFileSystemProbe();
+  const project: DetectedProject = {
+    workspaceRootPath: workspaceRoot,
+    services: [expressBackendService(backendRoot, ["app.js", "requirements.txt"])],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const result = await gatherInitializationFacts(fs, workspaceRoot, project, DEFAULT_CONFIGURATION);
+  assert.equal(result.requirementsFileDetected, false, "the runtime-kind guard must override evidence-based detection for a Node backend");
+});
+
+void test("gatherInitializationFacts: Express + Vite keeps backendNodeModulesDetected and nodeModulesDetected as two independent facts, each from its own service root", async () => {
+  const backendRoot = path.join(workspaceRoot, "backend");
+  const frontendRoot = path.join(workspaceRoot, "frontend");
+  const fs = new InMemoryFileSystemProbe().addDirectory(path.join(frontendRoot, "node_modules"));
+
+  const project: DetectedProject = {
+    workspaceRootPath: workspaceRoot,
+    services: [
+      expressBackendService(backendRoot),
+      {
+        id: "frontend",
+        rootPath: frontendRoot,
+        frameworkId: "vite",
+        runtime: {
+          kind: "node",
+          packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+          packageJsonPath: path.join(frontendRoot, "package.json"),
+          scripts: { dev: "vite" }
+        },
+        score: 90,
+        evidence: ["package.json", "vite.config.ts"]
+      }
+    ],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const result = await gatherInitializationFacts(fs, workspaceRoot, project, DEFAULT_CONFIGURATION);
+
+  // backend's own root has no node_modules (not added to the fake fs);
+  // frontend's own root does - proving the two facts are computed from two
+  // independent roots, never conflated.
+  assert.equal(result.backendNodeModulesDetected, false);
+  assert.equal(result.nodeModulesDetected, true);
 });

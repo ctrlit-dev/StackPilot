@@ -47,10 +47,10 @@ void test("Open Admin is gated by backendRunning && hasDjangoBackend", () => {
   assert.equal(openAdmin?.enablement, "stackPilot.backendRunning && stackPilot.hasDjangoBackend");
 });
 
-void test("backend-generic Python lifecycle commands are NOT narrowed to Django-only", () => {
+void test("Python lifecycle commands are gated to Python backends, not Django only (EXPRESS-1C)", () => {
   const commands = loadCommands();
   const installDeps = commands.find((c) => c.command === "stackPilot.installPythonDependencies");
   const createVenv = commands.find((c) => c.command === "stackPilot.createVirtualEnvironment");
-  assert.equal(installDeps?.enablement, "stackPilot.hasBackend");
-  assert.equal(createVenv?.enablement, "stackPilot.hasBackend");
+  assert.equal(installDeps?.enablement, "stackPilot.hasPythonBackend");
+  assert.equal(createVenv?.enablement, "stackPilot.hasPythonBackend");
 });

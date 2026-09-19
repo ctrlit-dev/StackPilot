@@ -38,6 +38,22 @@ function viteFrontendService(): DetectedService {
   };
 }
 
+function expressBackendService(): DetectedService {
+  return {
+    id: "backend",
+    rootPath: "/workspace",
+    frameworkId: "express",
+    runtime: {
+      kind: "node",
+      packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+      packageJsonPath: "/workspace/package.json",
+      scripts: { dev: "node app.js" }
+    },
+    score: 80,
+    evidence: ["app.js"]
+  };
+}
+
 function project(services: readonly DetectedService[]): DetectedProject {
   return { workspaceRootPath: "/workspace", services, pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] }, diagnostics: [] };
 }
@@ -65,5 +81,10 @@ void test("does not warn about a missing Python interpreter for a pure Node/Vite
 
 void test("reports nothing when no workspace/project is selected at all", async () => {
   const results = await pythonEnvironmentCheck.run({ detectedProject: undefined, fileSystem });
+  assert.deepEqual(results, []);
+});
+
+void test("EXPRESS-1C: reports nothing for a detected Express backend (Node runtime) - not a missing-interpreter problem", async () => {
+  const results = await pythonEnvironmentCheck.run({ detectedProject: project([expressBackendService()]), fileSystem });
   assert.deepEqual(results, []);
 });

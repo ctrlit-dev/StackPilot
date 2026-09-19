@@ -23,6 +23,15 @@ export const pythonEnvironmentCheck: DiagnosticCheck = {
       return Promise.resolve([]);
     }
 
+    // EXPRESS-1C: this check is about a *Python* backend's interpreter, not
+    // "any backend that happens to have no PythonEnvironment resolved" - a
+    // Node-runtime backend (Express) never has one, by design, and that is
+    // not a missing-interpreter problem. Positive check: only a backend
+    // whose own runtime is actually Python is in scope here.
+    if (backend.runtime?.kind !== "python") {
+      return Promise.resolve([]);
+    }
+
     if (getPythonEnvironment(backend) !== undefined) {
       return Promise.resolve([]);
     }

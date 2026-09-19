@@ -23,6 +23,7 @@ import { NodeFileSystemProbe } from "./detection/nodeFileSystem";
 import { detectProject } from "./detection/projectDetector";
 import { createDjangoMigrationsCheck } from "./diagnostics/checks/djangoMigrationsCheck";
 import { frameworkDependencyCheck } from "./diagnostics/checks/frameworkDependencyCheck";
+import { nodeBackendDependenciesCheck } from "./diagnostics/checks/nodeBackendDependenciesCheck";
 import { nodeDependenciesCheck } from "./diagnostics/checks/nodeDependenciesCheck";
 import { pythonEnvironmentCheck } from "./diagnostics/checks/pythonEnvironmentCheck";
 import { DiagnosticsController } from "./diagnostics/diagnosticsController";
@@ -112,7 +113,13 @@ export function activate(context: vscode.ExtensionContext): void {
   // events that can actually change a result; deliberately not subscribed
   // to processManager.onDidChangeState.
   const diagnosticsController = new DiagnosticsController(
-    [pythonEnvironmentCheck, frameworkDependencyCheck, nodeDependenciesCheck, createDjangoMigrationsCheck(migrationStatusController)],
+    [
+      pythonEnvironmentCheck,
+      frameworkDependencyCheck,
+      nodeDependenciesCheck,
+      nodeBackendDependenciesCheck,
+      createDjangoMigrationsCheck(migrationStatusController)
+    ],
     projectState,
     fileSystem,
     migrationStatusController,
