@@ -31,7 +31,7 @@ void test("djangoBackendAdapter identifies itself as the 'django' framework, dis
 });
 
 void test("builds the Django runserver command with the detected python, manage.py, host and port", () => {
-  const command = djangoBackendAdapter.buildStartCommand(python(), backendService(), "127.0.0.1", 8000);
+  const command = djangoBackendAdapter.buildStartCommand(backendService(), "127.0.0.1", 8000);
 
   assert.equal(command.executable, "/workspace/backend/.venv/bin/python");
   assert.deepEqual(command.args, ["/workspace/backend/manage.py", "runserver", "127.0.0.1:8000"]);
@@ -40,9 +40,16 @@ void test("builds the Django runserver command with the detected python, manage.
 });
 
 void test("never substitutes a different host than the one configured", () => {
-  const command = djangoBackendAdapter.buildStartCommand(python(), backendService(), "0.0.0.0", 8080);
+  const command = djangoBackendAdapter.buildStartCommand(backendService(), "0.0.0.0", 8080);
 
   assert.deepEqual(command.args, ["/workspace/backend/manage.py", "runserver", "0.0.0.0:8080"]);
+});
+
+void test("resolves the python interpreter from the service's own runtime, not an externally-passed parameter (EXPRESS-1B)", () => {
+  const service = backendService();
+  const command = djangoBackendAdapter.buildStartCommand(service, "127.0.0.1", 8000);
+
+  assert.equal(command.executable, service.runtime?.kind === "python" ? service.runtime.detection.selected?.executablePath : undefined);
 });
 
 void test("builds makemigrations", () => {

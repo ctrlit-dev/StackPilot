@@ -5,6 +5,7 @@ import type { StackPilotConfiguration } from "../config/configurationModel";
 import { resolveWorkspacePath, selectHighestConfidenceCandidate, uniqueStrings } from "../utils/paths";
 import { checkCandidatePath, type FileSystemProbe } from "./fileSystem";
 import { detectPackageManager, type PackageManagerDetection } from "./packageManagerDetector";
+import { readPackageJson } from "./packageJson";
 
 export interface FrontendProject {
   readonly rootPath: string;
@@ -97,38 +98,4 @@ function calculateFrontendScore(candidateDirectory: string, viteConfigPath: stri
     score += 10;
   }
   return score;
-}
-
-type PackageJsonReadResult =
-  | { readonly kind: "valid"; readonly scripts: Readonly<Record<string, string>> }
-  | { readonly kind: "invalid"; readonly reason: string };
-
-async function readPackageJson(fs: FileSystemProbe, packageJsonPath: string): Promise<PackageJsonReadResult> {
-  try {
-    const parsed = JSON.parse(await fs.readTextFile(packageJsonPath)) as unknown;
-    return {
-      kind: "valid",
-      scripts: readScripts(parsed)
-    };
-  } catch (error: unknown) {
-    return {
-      kind: "invalid",
-      reason: error instanceof Error ? error.message : "Unknown parse error"
-    };
-  }
-}
-
-function readScripts(packageJson: unknown): Readonly<Record<string, string>> {
-  if (typeof packageJson !== "object" || packageJson === null || !("scripts" in packageJson)) {
-    return {};
-  }
-
-  const scripts = packageJson.scripts;
-  if (typeof scripts !== "object" || scripts === null) {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(scripts).filter((entry): entry is [string, string] => typeof entry[1] === "string")
-  );
 }

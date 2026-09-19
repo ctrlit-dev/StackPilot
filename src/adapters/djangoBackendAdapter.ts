@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import type { BackendProject } from "../detection/backendDetector";
-import { getDjangoMetadata } from "../detection/detectedProject";
+import { getDjangoMetadata, getPythonEnvironment } from "../detection/detectedProject";
 import type { PythonEnvironment } from "../detection/pythonDetector";
 import type { OneShotCommandOptions } from "../execution/oneShotCommand";
 import type { BackendFrameworkAdapter } from "./backendFrameworkAdapter";
@@ -32,18 +32,28 @@ export const djangoBackendAdapter: BackendFrameworkAdapter = {
 
   /**
    * Takes the whole `DetectedService` (`BackendStartAdapter`'s contract,
-   * shared with FastAPI's start adapter), not a `BackendProject` directly -
-   * `managePyPath` is read via `getDjangoMetadata()`, with a defensive
-   * `<rootPath>/manage.py` fallback that is structurally unreachable in
-   * practice (this adapter is only ever selected for a service whose
-   * `frameworkId` is `"django"`, which `detection/projectDetector.ts` only
-   * ever sets alongside Django metadata) but keeps this function total
-   * without a non-null assertion.
+   * shared with FastAPI's and Express's start adapters), not a
+   * `BackendProject` directly - `managePyPath` is read via
+   * `getDjangoMetadata()`, with a defensive `<rootPath>/manage.py` fallback
+   * that is structurally unreachable in practice (this adapter is only ever
+   * selected for a service whose `frameworkId` is `"django"`, which
+   * `detection/projectDetector.ts` only ever sets alongside Django
+   * metadata) but keeps this function total without a non-null assertion.
+   *
+   * Resolves its own `PythonEnvironment` from `service` via
+   * `getPythonEnvironment()` (EXPRESS-1B: `buildStartCommand` no longer
+   * receives one as a separate parameter - see `BackendStartAdapter`'s own
+   * doc comment) rather than trusting an externally-passed one; the bare
+   * `"python"` fallback below is, like `managePyPath`'s, structurally
+   * unreachable through `commands/startPlans.ts#planBackendStart`, which
+   * already confirms a `PythonEnvironment` exists before ever calling this
+   * adapter.
    */
-  buildStartCommand(python, service, host, port) {
+  buildStartCommand(service, host, port) {
     const managePyPath = getDjangoMetadata(service)?.managePyPath ?? path.join(service.rootPath, "manage.py");
+    const python = getPythonEnvironment(service);
     return {
-      executable: python.executablePath,
+      executable: python?.executablePath ?? "python",
       args: [managePyPath, "runserver", `${host}:${port}`],
       cwd: service.rootPath,
       expectedPort: port

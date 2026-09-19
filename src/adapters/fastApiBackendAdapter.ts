@@ -1,4 +1,4 @@
-import { getFastApiMetadata } from "../detection/detectedProject";
+import { getFastApiMetadata, getPythonEnvironment } from "../detection/detectedProject";
 import type { BackendStartAdapter } from "./backendFrameworkAdapter";
 
 /**
@@ -11,14 +11,23 @@ import type { BackendStartAdapter } from "./backendFrameworkAdapter";
  * arbitrary file text. No install, no reload flag, no production server
  * (gunicorn/workers) - this is the minimal architecture-proof start
  * descriptor, not a FastAPI feature set (spec §36).
+ *
+ * Resolves its own `PythonEnvironment` from `service` via
+ * `getPythonEnvironment()` (EXPRESS-1B: `buildStartCommand` no longer
+ * receives one as a separate parameter - see `BackendStartAdapter`'s own
+ * doc comment); the bare `"python"` fallback below is structurally
+ * unreachable through `commands/startPlans.ts#planBackendStart`, which
+ * already confirms a `PythonEnvironment` exists before ever calling this
+ * adapter.
  */
 export const fastApiBackendAdapter: BackendStartAdapter = {
   id: "fastapi",
 
-  buildStartCommand(python, service, host, port) {
+  buildStartCommand(service, host, port) {
     const appImport = getFastApiMetadata(service)?.appImport ?? "main:app";
+    const python = getPythonEnvironment(service);
     return {
-      executable: python.executablePath,
+      executable: python?.executablePath ?? "python",
       args: ["-m", "uvicorn", appImport, "--host", host, "--port", String(port)],
       cwd: service.rootPath,
       expectedPort: port

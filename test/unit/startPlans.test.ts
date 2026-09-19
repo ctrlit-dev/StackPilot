@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { djangoBackendAdapter } from "../../src/adapters/djangoBackendAdapter";
+import { expressBackendAdapter } from "../../src/adapters/expressBackendAdapter";
 import { fastApiBackendAdapter } from "../../src/adapters/fastApiBackendAdapter";
 import { DEFAULT_CONFIGURATION } from "../../src/config/configurationModel";
 import type { BackendProject } from "../../src/detection/backendDetector";
@@ -271,6 +272,156 @@ void test("planFrontendStart reports an ambiguous package manager with candidate
   assert.equal(plan.kind, "package-manager-ambiguous");
   if (plan.kind === "package-manager-ambiguous") {
     assert.deepEqual(plan.candidates, ["npm", "pnpm"]);
+  }
+});
+
+function expressBackendProject(runtime: DetectedService["runtime"]): DetectedProject {
+  return {
+    workspaceRootPath: "/workspace",
+    services: [
+      {
+        id: "backend",
+        rootPath: "/workspace",
+        frameworkId: "express",
+        runtime,
+        score: 80,
+        evidence: ["app.js"]
+      }
+    ],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+}
+
+void test("planBackendStart builds the npm run dev command for a detected Express backend (Node runtime, same ServiceId 'backend')", () => {
+  const project = expressBackendProject({
+    kind: "node",
+    packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+    packageJsonPath: "/workspace/package.json",
+    scripts: { dev: "node index.js", start: "node index.js" }
+  });
+
+  const plan = planBackendStart(project, { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 3000 }, [expressBackendAdapter]);
+
+  assert.equal(plan.kind, "ready");
+  if (plan.kind === "ready") {
+    assert.equal(plan.command.executable, "npm");
+    assert.deepEqual(plan.command.args, ["run", "dev"]);
+    assert.equal(plan.command.cwd, "/workspace");
+    assert.equal(plan.command.expectedPort, 3000);
+    assert.deepEqual(plan.command.env, { PORT: "3000", HOST: "127.0.0.1" });
+  }
+});
+
+void test("planBackendStart uses the start script when only start exists (Express, no dev script)", () => {
+  const project = expressBackendProject({
+    kind: "node",
+    packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+    packageJsonPath: "/workspace/package.json",
+    scripts: { start: "node index.js" }
+  });
+
+  const plan = planBackendStart(project, DEFAULT_CONFIGURATION, [expressBackendAdapter]);
+
+  assert.equal(plan.kind, "ready");
+  if (plan.kind === "ready") {
+    assert.deepEqual(plan.command.args, ["run", "start"]);
+  }
+});
+
+void test("planBackendStart reports no-script for a detected Express backend with neither a dev nor a start script", () => {
+  const project = expressBackendProject({
+    kind: "node",
+    packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+    packageJsonPath: "/workspace/package.json",
+    scripts: { build: "tsc" }
+  });
+
+  const plan = planBackendStart(project, DEFAULT_CONFIGURATION, [expressBackendAdapter]);
+
+  assert.equal(plan.kind, "no-script");
+});
+
+void test("planBackendStart reports package-manager-missing for a detected Express backend with no lockfile", () => {
+  const project = expressBackendProject({
+    kind: "node",
+    packageManager: { kind: "missing", reason: "No supported package-manager lockfile was found." },
+    packageJsonPath: "/workspace/package.json",
+    scripts: { dev: "node index.js" }
+  });
+
+  const plan = planBackendStart(project, DEFAULT_CONFIGURATION, [expressBackendAdapter]);
+
+  assert.equal(plan.kind, "package-manager-missing");
+});
+
+void test("planBackendStart reports package-manager-ambiguous for a detected Express backend with multiple lockfiles", () => {
+  const project = expressBackendProject({
+    kind: "node",
+    packageManager: {
+      kind: "ambiguous",
+      candidates: [
+        { manager: "npm", lockfile: "package-lock.json" },
+        { manager: "pnpm", lockfile: "pnpm-lock.yaml" }
+      ]
+    },
+    packageJsonPath: "/workspace/package.json",
+    scripts: { dev: "node index.js" }
+  });
+
+  const plan = planBackendStart(project, DEFAULT_CONFIGURATION, [expressBackendAdapter]);
+
+  assert.equal(plan.kind, "package-manager-ambiguous");
+  if (plan.kind === "package-manager-ambiguous") {
+    assert.deepEqual(plan.candidates, ["npm", "pnpm"]);
+  }
+});
+
+void test("resolveBackendStartAdapter picks the Express start adapter for a Node-runtime backend", () => {
+  const project = expressBackendProject({
+    kind: "node",
+    packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+    packageJsonPath: "/workspace/package.json",
+    scripts: { dev: "node index.js" }
+  });
+
+  const adapter = resolveBackendStartAdapter(project, [djangoBackendAdapter, fastApiBackendAdapter, expressBackendAdapter]);
+  assert.equal(adapter?.id, "express");
+});
+
+void test("planBackendStart Django/FastAPI regression: existing no-python and ready behavior is unchanged by the Express-aware runtime branch", () => {
+  const noPythonPlan = planBackendStart(
+    detectedProject({
+      backend: {
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        candidates: [],
+        diagnostics: []
+      }
+    }),
+    DEFAULT_CONFIGURATION,
+    [djangoBackendAdapter]
+  );
+  assert.equal(noPythonPlan.kind, "no-python");
+
+  const readyPlan = planBackendStart(
+    detectedProject({
+      backend: {
+        selected: { rootPath: "/workspace/backend", frameworkEntryPath: "/workspace/backend/manage.py", score: 80, evidence: ["manage.py"] },
+        candidates: [],
+        diagnostics: []
+      },
+      python: {
+        selected: { executablePath: "/workspace/backend/.venv/bin/python", source: "venv", validation: "exists" },
+        candidates: [],
+        diagnostics: []
+      }
+    }),
+    { ...DEFAULT_CONFIGURATION, backendHost: "127.0.0.1", backendPort: 8000 },
+    [djangoBackendAdapter]
+  );
+  assert.equal(readyPlan.kind, "ready");
+  if (readyPlan.kind === "ready") {
+    assert.deepEqual(readyPlan.command.args, ["/workspace/backend/manage.py", "runserver", "127.0.0.1:8000"]);
   }
 });
 

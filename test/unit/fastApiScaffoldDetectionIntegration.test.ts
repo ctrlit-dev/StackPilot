@@ -98,7 +98,7 @@ void test("FastAPI Create's output is detected by the real fastApiBackendDetecti
     evidence: [detection.candidates[0]?.evidence ?? ""]
   };
 
-  const command = fastApiBackendAdapter.buildStartCommand(python, service, DEFAULT_CONFIGURATION.backendHost, DEFAULT_CONFIGURATION.backendPort);
+  const command = fastApiBackendAdapter.buildStartCommand(service, DEFAULT_CONFIGURATION.backendHost, DEFAULT_CONFIGURATION.backendPort);
 
   // 6. Assert the exact argv/cwd the existing, unmodified adapter produces.
   assert.equal(command.executable, python.executablePath);

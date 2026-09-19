@@ -22,13 +22,24 @@ export type IdentifierValidationResult = { readonly valid: true } | { readonly v
  * like `BackendProject` (a detection-internal DTO that only ever carries a
  * generic entry path - never Django's app list, FastAPI's own structured
  * facts, or a future framework's) - each concrete adapter reads whatever it
- * needs from `service.frameworkMetadata` via its own type-safe helper
- * (`getDjangoMetadata`/`getFastApiMetadata`), not a cast.
+ * needs from `service.frameworkMetadata`/`service.runtime` via its own
+ * type-safe helper (`getDjangoMetadata`/`getFastApiMetadata`/
+ * `getPythonEnvironment`/`getNodeRuntime`), not a cast.
+ *
+ * Deliberately does NOT take a `PythonEnvironment` parameter (EXPRESS-1B):
+ * that would force every implementation to receive a runtime fact only
+ * Python-family frameworks (Django, FastAPI) actually have - a Node-runtime
+ * framework (Express) has no `PythonEnvironment` to pass. Each concrete
+ * adapter resolves whatever runtime it needs from `service` itself
+ * (`getPythonEnvironment(service)` for Django/FastAPI,
+ * `getNodeRuntime(service)` for Express), exactly the same way it already
+ * resolves its own framework metadata from `service` rather than a
+ * separately-passed parameter.
  */
 export interface BackendStartAdapter {
   readonly id: FrameworkAdapterId;
 
-  buildStartCommand(python: PythonEnvironment, service: DetectedService, host: string, port: number): StartProcessOptions;
+  buildStartCommand(service: DetectedService, host: string, port: number): StartProcessOptions;
 }
 
 /**

@@ -26,7 +26,7 @@ void test("fastApiBackendAdapter identifies itself as the 'fastapi' framework, d
 });
 
 void test("builds the uvicorn start command from the detected python, appImport, host and port", () => {
-  const command = fastApiBackendAdapter.buildStartCommand(python(), backendService("main:app"), "127.0.0.1", 8000);
+  const command = fastApiBackendAdapter.buildStartCommand(backendService("main:app"), "127.0.0.1", 8000);
 
   assert.equal(command.executable, "/workspace/.venv/bin/python");
   assert.deepEqual(command.args, ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"]);
@@ -35,21 +35,27 @@ void test("builds the uvicorn start command from the detected python, appImport,
 });
 
 void test("uses the app-package appImport form verbatim (app.main:app)", () => {
-  const command = fastApiBackendAdapter.buildStartCommand(python(), backendService("app.main:app"), "127.0.0.1", 8000);
+  const command = fastApiBackendAdapter.buildStartCommand(backendService("app.main:app"), "127.0.0.1", 8000);
 
   assert.deepEqual(command.args, ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"]);
 });
 
 void test("never substitutes a different host than the one configured", () => {
-  const command = fastApiBackendAdapter.buildStartCommand(python(), backendService("main:app"), "0.0.0.0", 8080);
+  const command = fastApiBackendAdapter.buildStartCommand(backendService("main:app"), "0.0.0.0", 8080);
 
   assert.deepEqual(command.args, ["-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]);
 });
 
 void test("uses shell:false, structured argv - never a composed command string", () => {
-  const command = fastApiBackendAdapter.buildStartCommand(python(), backendService("main:app"), "127.0.0.1", 8000);
+  const command = fastApiBackendAdapter.buildStartCommand(backendService("main:app"), "127.0.0.1", 8000);
 
   assert.ok(Array.isArray(command.args));
   assert.ok(command.args.every((arg) => typeof arg === "string"));
   assert.equal((command as { shell?: boolean }).shell, undefined);
+});
+
+void test("resolves the python interpreter from the service's own runtime, not an externally-passed parameter (EXPRESS-1B)", () => {
+  const command = fastApiBackendAdapter.buildStartCommand(backendService("main:app"), "127.0.0.1", 8000);
+
+  assert.equal(command.executable, "/workspace/.venv/bin/python");
 });

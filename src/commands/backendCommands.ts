@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { COMMAND_OPEN_SETTINGS, COMMAND_START_BACKEND, COMMAND_STOP_BACKEND } from "../constants";
-import { getBackendService, getPythonEnvironment } from "../detection/detectedProject";
+import { getBackendService } from "../detection/detectedProject";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
 import { offerToOpenInBrowser } from "./openInBrowserOffer";
@@ -37,6 +37,24 @@ export async function startBackend(context: CommandContext): Promise<void> {
     showActionableError(context.outputChannel, "The backend could not be started because no Python interpreter was found.");
     return;
   }
+  if (plan.kind === "package-manager-missing") {
+    showActionableError(context.outputChannel, `The backend could not be started: ${plan.reason}`);
+    return;
+  }
+  if (plan.kind === "package-manager-ambiguous") {
+    showActionableError(
+      context.outputChannel,
+      `The backend could not be started: multiple package managers were detected (${plan.candidates.join(", ")}). Remove all but one lockfile to disambiguate.`
+    );
+    return;
+  }
+  if (plan.kind === "no-script") {
+    showActionableError(
+      context.outputChannel,
+      "The backend could not be started because its package.json has no 'dev' or 'start' script."
+    );
+    return;
+  }
 
   let command = plan.command;
   const requestedPort = command.expectedPort;
@@ -54,11 +72,14 @@ export async function startBackend(context: CommandContext): Promise<void> {
 
     const backendService = getBackendService(state.detectedProject);
     const adapter = resolveBackendStartAdapter(state.detectedProject, context.backendStartAdapters);
-    const python = getPythonEnvironment(backendService);
-    if (backendService === undefined || adapter === undefined || python === undefined) {
+    if (backendService === undefined || adapter === undefined) {
       return;
     }
-    command = adapter.buildStartCommand(python, backendService, state.configuration.backendHost, suggestedPort);
+    // The runtime prerequisite (Python interpreter, or a resolved Node
+    // package manager + dev/start script) was already confirmed by the
+    // "ready" plan that got us here in the first place - buildStartCommand
+    // just needs the new port, same as before EXPRESS-1B.
+    command = adapter.buildStartCommand(backendService, state.configuration.backendHost, suggestedPort);
   }
 
   context.terminalManager.reveal("backend");
