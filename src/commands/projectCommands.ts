@@ -10,6 +10,7 @@ import {
   COMMAND_START_ALL,
   COMMAND_STOP_ALL
 } from "../constants";
+import { getBackendService, getDjangoMetadata } from "../detection/detectedProject";
 import type { ManagedProcessKind, StartProcessOptions } from "../execution/processManager";
 import { showActionableError } from "../ui/notifications";
 import type { CommandContext } from "./commandContext";
@@ -152,9 +153,21 @@ async function copyServiceUrl(context: CommandContext, kind: ManagedProcessKind)
   void vscode.window.showInformationMessage(`StackPilot: copied ${url}`);
 }
 
-/** Django-specific: every Django project ships /admin/, so this skips having to type the URL by hand. */
+/**
+ * Django-specific: every Django project ships /admin/, so this skips having
+ * to type the URL by hand. `enablement` in package.json already hides this
+ * from the Command Palette for a non-Django project, but that is a UI-only
+ * guard - a command id can still be invoked programmatically - so the Django
+ * check is repeated here as the actual safeguard against opening a
+ * meaningless `/admin/` URL against a FastAPI (or other) backend.
+ */
 export async function openAdmin(context: CommandContext): Promise<void> {
   const state = context.projectState.getState();
+  if (getDjangoMetadata(getBackendService(state.detectedProject)) === undefined) {
+    showActionableError(context.outputChannel, "Open Admin could not run because no Django project was detected.");
+    return;
+  }
+
   const backendHost = state.configuration?.backendHost ?? "127.0.0.1";
   const url = planServiceUrl("backend", context.processManager.getState("backend"), context.frontendUrlTracker.getUrl(), backendHost);
 

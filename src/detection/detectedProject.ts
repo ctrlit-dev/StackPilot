@@ -139,6 +139,28 @@ export function getDjangoBackendProject(service: DetectedService | undefined): B
   return { rootPath: service.rootPath, frameworkEntryPath: metadata.managePyPath, score: service.score, evidence: service.evidence };
 }
 
+/**
+ * The short, user-facing technology name for a detected service - "Django",
+ * "FastAPI", "Vite", or `undefined` when no framework was identified. Reuses
+ * the same narrowing helpers every other framework-specific check in this
+ * file already uses; Vite has no `FrameworkMetadata` variant, so it is the
+ * one case narrowed directly on `frameworkId` rather than on metadata `.kind`.
+ * Never returns "React" - detection only ever confirms Vite (see
+ * `adapters/viteFrontendDetection.ts`), not the framework built on top of it.
+ */
+export function frameworkDisplayLabel(service: DetectedService | undefined): string | undefined {
+  if (getDjangoMetadata(service) !== undefined) {
+    return "Django";
+  }
+  if (getFastApiMetadata(service) !== undefined) {
+    return "FastAPI";
+  }
+  if (service?.frameworkId === "vite") {
+    return "Vite";
+  }
+  return undefined;
+}
+
 export function getPythonEnvironment(service: DetectedService | undefined): PythonEnvironment | undefined {
   return service?.runtime?.kind === "python" ? service.runtime.detection.selected : undefined;
 }

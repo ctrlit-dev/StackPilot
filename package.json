@@ -203,7 +203,7 @@
         "title": "Open Admin",
         "category": "StackPilot",
         "icon": "$(account)",
-        "enablement": "stackPilot.backendRunning"
+        "enablement": "stackPilot.backendRunning && stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.openLogs",
@@ -221,49 +221,49 @@
         "command": "stackPilot.makeMigrations",
         "title": "Make Migrations",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.migrate",
         "title": "Migrate",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.showMigrations",
         "title": "Show Migrations",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.createSuperuser",
         "title": "Create Superuser",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.openDjangoShell",
         "title": "Open Django Shell",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.openDbShell",
         "title": "Open Database Shell",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.createDjangoApp",
         "title": "Create Django App…",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.runDjangoTests",
         "title": "Run Django Tests",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.installPythonDependencies",
@@ -313,31 +313,31 @@
         "command": "stackPilot.runManagementCommand",
         "title": "Run Django Management Command…",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.djangoAppMakeMigrations",
         "title": "Make Migrations for App",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.djangoAppMigrate",
         "title": "Migrate App",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.djangoAppShowMigrations",
         "title": "Show Migrations for App",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.djangoAppTest",
         "title": "Run Tests for App",
         "category": "StackPilot",
-        "enablement": "stackPilot.hasBackend"
+        "enablement": "stackPilot.hasDjangoBackend"
       },
       {
         "command": "stackPilot.createVirtualEnvironment",

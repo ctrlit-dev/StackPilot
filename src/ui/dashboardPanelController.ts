@@ -31,7 +31,14 @@ import {
   COMMAND_TOGGLE_FRONTEND,
   DASHBOARD_PANEL_VIEW_TYPE
 } from "../constants";
-import { getBackendService, getDjangoMetadata, getFrontendService, getNodeRuntime } from "../detection/detectedProject";
+import {
+  frameworkDisplayLabel,
+  getBackendService,
+  getDjangoMetadata,
+  getFrontendService,
+  getNodeRuntime,
+  type DetectedService
+} from "../detection/detectedProject";
 import type { DjangoApp } from "../detection/djangoAppDetector";
 import type { PackageManagerDetection } from "../detection/packageManagerDetector";
 import type { PythonEnvironment } from "../detection/pythonDetector";
@@ -362,11 +369,9 @@ export class DashboardPanelController implements vscode.Disposable {
         backendDescriptor,
         COMMAND_TOGGLE_BACKEND,
         state.configuration?.backendHost,
-        [
-          { icon: "copy", title: "Copy URL", commandId: COMMAND_COPY_BACKEND_URL },
-          { icon: "account", title: "Open Admin", commandId: COMMAND_OPEN_ADMIN }
-        ],
-        this.recentOutput.get("backend") ?? []
+        backendExtraActions(backend),
+        this.recentOutput.get("backend") ?? [],
+        frameworkDisplayLabel(backend)
       ),
       serverStatCard(
         "Frontend",
@@ -376,7 +381,8 @@ export class DashboardPanelController implements vscode.Disposable {
         COMMAND_TOGGLE_FRONTEND,
         undefined,
         [{ icon: "copy", title: "Copy URL", commandId: COMMAND_COPY_FRONTEND_URL }],
-        this.recentOutput.get("frontend") ?? []
+        this.recentOutput.get("frontend") ?? [],
+        frameworkDisplayLabel(frontend)
       ),
       pythonStatCard(python),
       packageManagerStatCard(frontendRuntime?.packageManager)
@@ -2354,13 +2360,28 @@ function logPreview(lines: readonly string[]): string {
   return `<pre class="log-preview">${escapeHtml(lines.join("\n"))}</pre>`;
 }
 
-interface StatCardExtraAction {
+export interface StatCardExtraAction {
   readonly icon: string;
   readonly title: string;
   readonly commandId: string;
 }
 
-function serverStatCard(
+/**
+ * "Open Admin" is Django-only (every Django project ships /admin/; FastAPI
+ * has no equivalent) - mirrors the same `getDjangoMetadata` check that
+ * already gates the `BACKEND_TILES` Quick-Actions group further down, so a
+ * detected-but-non-Django backend never shows an action that could only ever
+ * 404 or hit an unrelated route.
+ */
+export function backendExtraActions(backend: DetectedService | undefined): readonly StatCardExtraAction[] {
+  const actions: StatCardExtraAction[] = [{ icon: "copy", title: "Copy URL", commandId: COMMAND_COPY_BACKEND_URL }];
+  if (getDjangoMetadata(backend) !== undefined) {
+    actions.push({ icon: "account", title: "Open Admin", commandId: COMMAND_OPEN_ADMIN });
+  }
+  return actions;
+}
+
+export function serverStatCard(
   label: string,
   glyphWhenDetected: string,
   detected: boolean,
@@ -2368,10 +2389,13 @@ function serverStatCard(
   toggleCommandId: string,
   host?: string,
   extraActionsWhenRunning: readonly StatCardExtraAction[] = [],
-  logLines: readonly string[] = []
+  logLines: readonly string[] = [],
+  frameworkLabel?: string
 ): string {
+  const title = frameworkLabel === undefined ? label : `${label} · ${frameworkLabel}`;
+
   if (!detected) {
-    return statCardShell(glyphWhenDetected, "disabledForeground", label, "Not detected");
+    return statCardShell(glyphWhenDetected, "disabledForeground", title, "Not detected");
   }
 
   const busy = descriptor.state === "starting" || descriptor.state === "stopping";
@@ -2393,7 +2417,7 @@ function serverStatCard(
   return statCardShell(
     statusIcon.id.replace("~spin", ""),
     statusIcon.color ?? "foreground",
-    label,
+    title,
     escapeHtml(describeServerState(descriptor, host)),
     action,
     logPreview(logLines)
