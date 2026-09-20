@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["out/**", "dist/**", "node_modules/**", ".vscode-test/**", "eslint.config.mjs", "esbuild.js"]
+    ignores: ["out/**", "dist/**", "node_modules/**", ".vscode-test/**", "eslint.config.mjs", "esbuild.js", "resources/vendor/**"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

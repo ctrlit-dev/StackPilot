@@ -1607,7 +1607,7 @@ ${body}
   }
 
   function parseRgbString(value) {
-    const match = value.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)/i);
+    const match = value.match(/rgba?\\(\\s*([\\d.]+)\\s*,\\s*([\\d.]+)\\s*,\\s*([\\d.]+)\\s*(?:,\\s*([\\d.]+)\\s*)?\\)/i);
     if (!match) {
       throw new Error("Expected rgb(r, g, b) or rgba(r, g, b, a)");
     }
@@ -1615,7 +1615,7 @@ ${body}
   }
 
   function parseHslString(value) {
-    const match = value.match(/hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*(?:,\s*([\d.]+)\s*)?\)/i);
+    const match = value.match(/hsla?\\(\\s*([\\d.]+)\\s*,\\s*([\\d.]+)%\\s*,\\s*([\\d.]+)%\\s*(?:,\\s*([\\d.]+)\\s*)?\\)/i);
     if (!match) {
       throw new Error("Expected hsl(h, s%, l%) or hsla(h, s%, l%, a)");
     }
