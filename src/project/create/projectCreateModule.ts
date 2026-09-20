@@ -7,9 +7,9 @@ import type { ViteTemplate } from "../../execution/viteScaffoldCommand";
 import type { ProjectFileWriter } from "../projectFileWriter";
 import type { ScaffoldStep } from "../scaffoldStep";
 
-/** Widens to "express" | "nestjs" as those packages land - never unioned with FrameworkAdapterId
+/** Widens to "nestjs" as that package lands - never unioned with FrameworkAdapterId
  *  (see docs/CREATE_ARCH_MODULAR_PROJECT_CREATION_PLAN.md §32.3). */
-export type ProjectCreateId = "django" | "fastapi" | "vite-react";
+export type ProjectCreateId = "django" | "fastapi" | "vite-react" | "express";
 
 /** Framework-agnostic - buildViteFrontendSteps()/buildViteReadmeSection() take exactly these facts. */
 export interface FrontendScaffoldRequest {
