@@ -96,7 +96,7 @@ void test("backendTestSuitePlan is ready with the manage.py test command once ev
 void test("frontendTestSuitePlan reports unavailable when no frontend was detected", () => {
   const plan = frontendTestSuitePlan(detectedProject(), "test");
   assert.equal(plan.kind, "unavailable");
-  assert.equal(plan.reason, "No Vite frontend was detected.");
+  assert.equal(plan.reason, "No frontend was detected.");
 });
 
 void test("frontendTestSuitePlan reports unavailable when the test script is missing", () => {

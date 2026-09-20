@@ -109,6 +109,7 @@ function facts(overrides: Partial<InitializationFacts> = {}): InitializationFact
     backendNodeModulesDetected: undefined,
     frontendDetected: false,
     nodeModulesDetected: undefined,
+    frontendFrameworkLabel: undefined,
     ...overrides
   };
 }
@@ -117,8 +118,9 @@ void test("a fully empty project only shows the two top-level not-detected rows"
   const plan = analyzeInitialization(facts());
   assert.deepEqual(
     plan.checklist.map((item) => item.label),
-    ["Backend project detected", "Vite frontend detected"]
+    ["Backend project detected", "No frontend detected"]
   );
+  assert.equal(plan.checklist[1]?.done, false);
   assert.equal(plan.canCreateVenv, false);
   assert.equal(plan.canInstallPythonDependencies, false);
   assert.equal(plan.canInstallFrontendDependencies, false);
@@ -172,7 +174,7 @@ void test("EXPRESS-1C: a Node-runtime backend's checklist shows 'node_modules pr
   );
   assert.deepEqual(
     notPresent.checklist.map((item) => item.label),
-    ["Express project detected", "node_modules present", "Vite frontend detected"]
+    ["Express project detected", "node_modules present", "No frontend detected"]
   );
   assert.equal(notPresent.checklist[1]?.done, false);
 
@@ -233,6 +235,79 @@ void test("offers to install frontend dependencies only when node_modules is mis
 
   const alreadyDone = analyzeInitialization(facts({ frontendDetected: true, nodeModulesDetected: true }));
   assert.equal(alreadyDone.canInstallFrontendDependencies, false);
+});
+
+// --- NEXTJS-1C: frontend checklist label reuses frameworkDisplayLabel ---
+
+void test("labels the frontend row 'Vite frontend detected' when a Vite frontend is detected", () => {
+  const plan = analyzeInitialization(facts({ frontendDetected: true, frontendFrameworkLabel: "Vite" }));
+  // Index 1, not the last row: with backendDetected false (the facts()
+  // default), the checklist is [backend row, frontend framework row, then
+  // optionally "node_modules present" when frontendDetected is true].
+  const frontendRow = plan.checklist[1];
+  assert.equal(frontendRow?.label, "Vite frontend detected");
+  assert.equal(frontendRow?.done, true);
+});
+
+void test("labels the frontend row 'Next.js frontend detected' when a Next.js frontend is detected", () => {
+  const plan = analyzeInitialization(facts({ frontendDetected: true, frontendFrameworkLabel: "Next.js" }));
+  const frontendRow = plan.checklist[1];
+  assert.equal(frontendRow?.label, "Next.js frontend detected");
+  assert.equal(frontendRow?.done, true);
+});
+
+void test("falls back to a framework-neutral 'Frontend detected' label when a frontend is detected but its framework is unrecognized", () => {
+  const plan = analyzeInitialization(facts({ frontendDetected: true, frontendFrameworkLabel: undefined }));
+  const frontendRow = plan.checklist[1];
+  assert.equal(frontendRow?.label, "Frontend detected");
+  assert.equal(frontendRow?.done, true);
+});
+
+void test("says 'No frontend detected' with done: false, never 'Vite frontend detected' or the contradictory done:true 'Frontend detected', when no frontend was detected at all", () => {
+  const plan = analyzeInitialization(facts());
+  const frontendRow = plan.checklist[1];
+  assert.equal(frontendRow?.label, "No frontend detected");
+  assert.equal(frontendRow?.done, false);
+});
+
+void test("gatherInitializationFacts reports frontendFrameworkLabel 'Vite' for a real detected Vite frontend", async () => {
+  const fs = new InMemoryFileSystemProbe();
+  const result = await gatherInitializationFacts(fs, workspaceRoot, detectedProject({ frontend: frontend() }), DEFAULT_CONFIGURATION);
+  assert.equal(result.frontendFrameworkLabel, "Vite");
+});
+
+void test("gatherInitializationFacts reports frontendFrameworkLabel undefined when no frontend was detected", async () => {
+  const fs = new InMemoryFileSystemProbe();
+  const result = await gatherInitializationFacts(fs, workspaceRoot, detectedProject(), DEFAULT_CONFIGURATION);
+  assert.equal(result.frontendFrameworkLabel, undefined);
+});
+
+void test("gatherInitializationFacts reports frontendFrameworkLabel 'Next.js' for a real detected Next.js frontend", async () => {
+  const frontendRoot = path.join(workspaceRoot, "frontend");
+  const project: DetectedProject = {
+    workspaceRootPath: workspaceRoot,
+    services: [
+      {
+        id: "frontend",
+        rootPath: frontendRoot,
+        frameworkId: "next",
+        runtime: {
+          kind: "node",
+          packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+          packageJsonPath: path.join(frontendRoot, "package.json"),
+          scripts: { dev: "next dev" }
+        },
+        score: 90,
+        evidence: ["package.json"]
+      }
+    ],
+    pythonRuntime: { selected: undefined, candidates: [], diagnostics: [] },
+    diagnostics: []
+  };
+
+  const fs = new InMemoryFileSystemProbe();
+  const result = await gatherInitializationFacts(fs, workspaceRoot, project, DEFAULT_CONFIGURATION);
+  assert.equal(result.frontendFrameworkLabel, "Next.js");
 });
 
 void test("includes the Python dependencies row only when requirements.txt was found", () => {

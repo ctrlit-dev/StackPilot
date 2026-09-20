@@ -35,7 +35,7 @@ export function frontendTestSuitePlan(detectedProject: DetectedProject | undefin
   }
 
   if (plan.kind === "no-frontend") {
-    return { kind: "unavailable", reason: "No Vite frontend was detected." };
+    return { kind: "unavailable", reason: "No frontend was detected." };
   }
   if (plan.kind === "package-manager-missing") {
     return { kind: "unavailable", reason: plan.reason };

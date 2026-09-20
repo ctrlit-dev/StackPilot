@@ -486,7 +486,7 @@
           "type": "string",
           "default": "frontend",
           "scope": "resource",
-          "description": "Relative path from the selected workspace folder to the Vite frontend directory."
+          "description": "Relative path from the selected workspace folder to the frontend directory (Vite or Next.js)."
         },
         "stackPilot.frontend.packageManager": {
           "type": "string",
@@ -539,7 +539,7 @@
           "minimum": 1,
           "maximum": 65535,
           "scope": "resource",
-          "description": "Preferred frontend development server port. Vite may still choose another port at runtime."
+          "description": "Preferred frontend development server port. The frontend (Vite or Next.js) may still choose another port at runtime."
         },
         "stackPilot.openBrowserOnStart": {
           "type": "boolean",

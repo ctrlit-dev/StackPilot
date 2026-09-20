@@ -1,6 +1,13 @@
 import * as path from "node:path";
 import type { StackPilotConfiguration } from "../config/configurationModel";
-import { getBackendService, getDjangoMetadata, getFastApiMetadata, getFrontendService, type DetectedProject } from "../detection/detectedProject";
+import {
+  frameworkDisplayLabel,
+  getBackendService,
+  getDjangoMetadata,
+  getFastApiMetadata,
+  getFrontendService,
+  type DetectedProject
+} from "../detection/detectedProject";
 import type { FileSystemProbe } from "../detection/fileSystem";
 import { isPythonPackageInstalled } from "../detection/pythonPackageCheck";
 import { resolveWorkspacePath } from "../utils/paths";
@@ -41,6 +48,17 @@ export interface InitializationFacts {
   readonly frontendDetected: boolean;
   /** undefined = not checkable (no frontend detected) */
   readonly nodeModulesDetected: boolean | undefined;
+  /**
+   * NEXTJS-1C: the frontend's own display label ("Vite"/"Next.js"), sourced
+   * from `frameworkDisplayLabel()` - never a second, independently
+   * maintained framework-name mapping. `undefined` both when no frontend
+   * was detected at all and when one was detected but its framework isn't
+   * one `frameworkDisplayLabel()` can currently name - the checklist itself
+   * (`frontendChecklistLabel()`) is what turns that ambiguity into the
+   * correct neutral fallback, using `frontendDetected` to tell the two
+   * apart.
+   */
+  readonly frontendFrameworkLabel: string | undefined;
 }
 
 const REQUIREMENTS_EVIDENCE = ["requirements.txt", "requirements/dev.txt"] as const;
@@ -115,7 +133,8 @@ export async function gatherInitializationFacts(
     pythonDependenciesInstalled,
     backendNodeModulesDetected,
     frontendDetected: frontend !== undefined,
-    nodeModulesDetected
+    nodeModulesDetected,
+    frontendFrameworkLabel: frameworkDisplayLabel(frontend)
   };
 }
 
@@ -157,6 +176,24 @@ function backendChecklistLabel(facts: InitializationFacts): string {
 }
 
 /**
+ * NEXTJS-1C: mirrors `backendChecklistLabel()`'s own naming pattern -
+ * named after the actually detected frontend framework (never hard-coded
+ * to one framework), sourced from `facts.frontendFrameworkLabel`, itself
+ * sourced from `frameworkDisplayLabel()`. Falls back to a framework-neutral
+ * "Frontend detected" for a detected frontend whose framework this
+ * checklist does not (yet) know how to name specifically - never claiming
+ * Vite for a frontend that isn't Vite - and to "No frontend detected" when
+ * `facts.frontendDetected` is false, so the row's own wording never
+ * contradicts its `done` state.
+ */
+function frontendChecklistLabel(facts: InitializationFacts): string {
+  if (facts.frontendFrameworkLabel !== undefined) {
+    return `${facts.frontendFrameworkLabel} frontend detected`;
+  }
+  return facts.frontendDetected ? "Frontend detected" : "No frontend detected";
+}
+
+/**
  * Builds the spec §25 checklist and the set of applicable follow-up actions.
  * Every action offered here is idempotent to run again (venv creation
  * refuses to overwrite a healthy one; pip/npm install are safe re-runs), so
@@ -184,7 +221,7 @@ export function analyzeInitialization(facts: InitializationFacts): Initializatio
     }
   }
 
-  checklist.push({ label: "Vite frontend detected", done: facts.frontendDetected });
+  checklist.push({ label: frontendChecklistLabel(facts), done: facts.frontendDetected });
   if (facts.frontendDetected) {
     checklist.push({ label: "node_modules present", done: facts.nodeModulesDetected });
   }

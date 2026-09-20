@@ -24,7 +24,7 @@ export async function startFrontend(context: CommandContext): Promise<void> {
 
   const plan = planFrontendStart(state.detectedProject, state.configuration);
   if (plan.kind === "no-frontend") {
-    showActionableError(context.outputChannel, "The frontend dev server could not be started because no Vite frontend was detected.");
+    showActionableError(context.outputChannel, "The frontend dev server could not be started because no frontend was detected.");
     return;
   }
   if (plan.kind === "package-manager-missing") {

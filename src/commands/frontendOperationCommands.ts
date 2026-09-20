@@ -33,7 +33,7 @@ function reportFrontendPlanFailure(
   plan: Exclude<FrontendOperationPlan, { readonly kind: "ready" }>
 ): void {
   if (plan.kind === "no-frontend") {
-    showActionableError(context.outputChannel, `${title} could not run because no Vite frontend was detected.`);
+    showActionableError(context.outputChannel, `${title} could not run because no frontend was detected.`);
   } else if (plan.kind === "package-manager-missing") {
     showActionableError(context.outputChannel, `${title} could not run: ${plan.reason}`);
   } else if (plan.kind === "package-manager-ambiguous") {
@@ -109,7 +109,7 @@ export async function runFrontendTests(context: CommandContext): Promise<void> {
 export async function runFrontendScript(context: CommandContext): Promise<void> {
   const scripts = getNodeRuntime(getFrontendService(context.projectState.getState().detectedProject))?.scripts;
   if (scripts === undefined) {
-    showActionableError(context.outputChannel, "Run Script could not run because no Vite frontend was detected.");
+    showActionableError(context.outputChannel, "Run Script could not run because no frontend was detected.");
     return;
   }
   const scriptNames = Object.keys(scripts);

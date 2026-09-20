@@ -25,7 +25,7 @@ async function openBackendEnvFile(context: CommandContext): Promise<void> {
 async function openFrontendEnvFile(context: CommandContext): Promise<void> {
   const frontend = getFrontendService(context.projectState.getState().detectedProject);
   if (frontend === undefined) {
-    showActionableError(context.outputChannel, "The .env file could not be opened because no Vite frontend was detected.");
+    showActionableError(context.outputChannel, "The .env file could not be opened because no frontend was detected.");
     return;
   }
   await openOrCreateEnvFile(context, frontend.rootPath);
