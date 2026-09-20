@@ -1,8 +1,9 @@
 {
   "name": "stackpilot",
   "displayName": "StackPilot",
-  "description": "Local development control center for VS Code with project detection, service management, project health, and tools for Django, FastAPI, and React + Vite.",
-  "version": "0.0.3",
+  "description": "Local development control center for VS Code with project detection, service management, and project health for Django, FastAPI, Express, React + Vite, and Next.js.",
+  "version": "0.1.0",
+  "preview": true,
   "publisher": "ctrlit-dev",
   "icon": "resources/icon.png",
   "license": "MIT",
@@ -20,8 +21,13 @@
   ],
   "keywords": [
     "django",
+    "fastapi",
+    "express",
     "vite",
+    "react",
+    "nextjs",
     "python",
+    "node",
     "typescript",
     "development"
   ],

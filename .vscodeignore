@@ -1,5 +1,6 @@
 CODEX_VSCODE_DJANGO_VITE_PROJECT_CONTROL_MASTER_PROMPT.md
 .gitignore
+.claude/**
 .vscode/**
 .vscode-test/**
 src/**

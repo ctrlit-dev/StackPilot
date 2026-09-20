@@ -3,6 +3,19 @@
 All notable changes to the "StackPilot" extension are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.0] - 2026-09-20
+
+**Public Preview.**
+
+### Added
+- **Express support**: detection, and starting/stopping the dev server. Express backends are not yet covered by the Django-specific tooling (migrations, shell, dependency install, debug configuration).
+- **Express project creation**: plain, or paired with a Vite + React + TypeScript frontend.
+- **Next.js support**: detection and dev-server lifecycle (start/stop/restart), with frontend URL tracking and "Open Application" the same as Vite.
+- **Next.js project creation**: a standalone App Router + TypeScript project.
+
+### Changed
+- Framework-aware UX improvements: dashboard, tree, and command copy now correctly reflect which framework-specific operations are available per backend/frontend type, instead of assuming Django/Vite everywhere.
+
 ## [0.0.3] - 2026-09-19
 
 ### Added
