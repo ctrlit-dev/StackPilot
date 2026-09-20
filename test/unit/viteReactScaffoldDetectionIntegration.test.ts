@@ -92,7 +92,7 @@ void test("standalone React + Vite Create's output is detected as a frontend-onl
   // it (Django and FastAPI backend detections registered, Vite frontend
   // detection registered) - no backend evidence exists anywhere in this
   // workspace.
-  const detectedProject = await detectProject(fakeFs, workspaceRootPath, DEFAULT_CONFIGURATION, [djangoBackendDetection, fastApiBackendDetection], viteFrontendDetection);
+  const detectedProject = await detectProject(fakeFs, workspaceRootPath, DEFAULT_CONFIGURATION, [djangoBackendDetection, fastApiBackendDetection], [viteFrontendDetection]);
 
   assert.equal(detectedProject.services.length, 1);
   const [service] = detectedProject.services;

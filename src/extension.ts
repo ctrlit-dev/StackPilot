@@ -5,6 +5,8 @@ import { expressBackendAdapter } from "./adapters/expressBackendAdapter";
 import { expressBackendDetection } from "./adapters/expressBackendDetection";
 import { fastApiBackendAdapter } from "./adapters/fastApiBackendAdapter";
 import { fastApiBackendDetection } from "./adapters/fastApiBackendDetection";
+import { nextFrontendAdapter } from "./adapters/nextFrontendAdapter";
+import { nextFrontendDetection } from "./adapters/nextFrontendDetection";
 import { viteFrontendAdapter } from "./adapters/viteFrontendAdapter";
 import { viteFrontendDetection } from "./adapters/viteFrontendDetection";
 import { registerCommands } from "./commands/registerCommands";
@@ -62,7 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const processManager = new ProcessManager(spawner, DEFAULT_SERVICE_REGISTRY);
   const portChecker = new NodePortChecker();
   const terminalManager = new ServerTerminalManager(processManager);
-  const frontendUrlTracker = new FrontendUrlTracker(viteFrontendAdapter);
+  const frontendUrlTracker = new FrontendUrlTracker([viteFrontendAdapter, nextFrontendAdapter]);
   const operationTerminal = new OperationTerminal();
   const interactiveTerminals = new InteractiveTerminalManager();
   const projectState = new ProjectStateStore();
@@ -90,7 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
       selectedWorkspaceUri.fsPath,
       configuration.value,
       [djangoBackendDetection, fastApiBackendDetection, expressBackendDetection],
-      viteFrontendDetection
+      [viteFrontendDetection, nextFrontendDetection]
     );
     for (const diagnostic of detectedProject.diagnostics) {
       outputChannel.appendLine(`Detection warning: ${diagnostic}`);
@@ -233,6 +235,13 @@ export function activate(context: vscode.ExtensionContext): void {
       void updateProcessContextKeys(processManager.getState("backend"), processManager.getState("frontend"));
       updateRunningBadge();
       if (descriptor.kind === "frontend" && descriptor.state === "starting") {
+        // NEXTJS-1B: the active URL-parsing adapter is resolved from the
+        // currently detected frontend service's own frameworkId, not bound
+        // once for the extension's lifetime - a Vite project gets Vite's
+        // adapter, a Next.js project gets Next's, and an unrecognized Node
+        // frontend gets none (URL parsing simply stays unavailable, same
+        // as today).
+        frontendUrlTracker.setActiveFramework(getFrontendService(projectState.getState().detectedProject)?.frameworkId);
         frontendUrlTracker.reset();
       }
       outputChannel.appendLine(
@@ -247,9 +256,9 @@ export function activate(context: vscode.ExtensionContext): void {
         activityLog.record(`${label} crashed`, "failure");
       }
     }),
-    processManager.onDidReceiveOutput((kind, chunk) => {
+    processManager.onDidReceiveOutput((kind, chunk, stream) => {
       if (kind === "frontend") {
-        frontendUrlTracker.feed(chunk);
+        frontendUrlTracker.feed(chunk, stream);
       }
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => {

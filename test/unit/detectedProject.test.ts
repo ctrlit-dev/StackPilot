@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   findService,
+  frameworkDisplayLabel,
   getBackendService,
   getDjangoBackendProject,
   getDjangoMetadata,
@@ -71,6 +72,23 @@ function viteService(overrides: Partial<DetectedService> = {}): DetectedService 
     },
     score: 90,
     evidence: ["package.json", "vite.config.ts"],
+    ...overrides
+  };
+}
+
+function nextService(overrides: Partial<DetectedService> = {}): DetectedService {
+  return {
+    id: "frontend",
+    rootPath: "/workspace",
+    frameworkId: "next",
+    runtime: {
+      kind: "node",
+      packageManager: { kind: "detected", manager: "npm", source: "lockfile", evidence: "package-lock.json" },
+      packageJsonPath: "/workspace/package.json",
+      scripts: { dev: "next dev", build: "next build", start: "next start" }
+    },
+    score: 90,
+    evidence: ["package.json", "next.config.ts"],
     ...overrides
   };
 }
@@ -229,4 +247,31 @@ void test("a backend service with no resolved interpreter still carries a python
   const backend = getBackendService(detected);
   assert.equal(backend?.runtime?.kind, "python");
   assert.equal(getPythonEnvironment(backend), undefined);
+});
+
+// --- Next.js label / ServiceId != FrameworkAdapterId (NEXTJS-1B) ---
+
+void test("frameworkDisplayLabel returns 'Next.js' for a frontend service whose framework is next", () => {
+  assert.equal(frameworkDisplayLabel(nextService()), "Next.js");
+});
+
+void test("frameworkDisplayLabel distinguishes Next.js from Vite on the SAME ServiceId 'frontend'", () => {
+  assert.equal(frameworkDisplayLabel(viteService()), "Vite");
+  assert.equal(frameworkDisplayLabel(nextService()), "Next.js");
+});
+
+void test("a Next.js-backed service uses the SAME ServiceId 'frontend' as Vite, proving ServiceId != FrameworkAdapterId", () => {
+  const detected = project([nextService()]);
+
+  const frontend = getFrontendService(detected);
+  assert.equal(frontend?.id, "frontend");
+  assert.equal(frontend?.frameworkId, "next");
+});
+
+void test("the Node runtime (package manager, scripts) is available on a Next.js frontend service exactly as it is for Vite", () => {
+  const detected = project([nextService()]);
+
+  const runtime = getNodeRuntime(getFrontendService(detected));
+  assert.equal(runtime?.packageManager.kind, "detected");
+  assert.deepEqual(runtime?.scripts, { dev: "next dev", build: "next build", start: "next start" });
 });

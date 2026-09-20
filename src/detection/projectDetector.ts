@@ -31,11 +31,11 @@ export async function detectProject(
   workspaceRootPath: string,
   configuration: StackPilotConfiguration,
   backendFrameworkDetections: readonly BackendFrameworkDetection[],
-  frontendFrameworkDetection: FrontendFrameworkDetection,
+  frontendFrameworkDetections: readonly FrontendFrameworkDetection[],
   pythonVersionProbe?: PythonVersionProbe
 ): Promise<DetectedProject> {
   const backend = await detectBackendFramework(fs, workspaceRootPath, configuration, backendFrameworkDetections);
-  const frontend = await detectFrontendProject(fs, workspaceRootPath, configuration, frontendFrameworkDetection);
+  const frontend = await detectFrontendProject(fs, workspaceRootPath, configuration, frontendFrameworkDetections);
   const python = await detectPythonEnvironment(fs, workspaceRootPath, backend.result.selected?.rootPath, configuration, pythonVersionProbe);
 
   const services: DetectedService[] = [];
@@ -57,9 +57,13 @@ export async function detectProject(
     services.push({
       id: FRONTEND_SERVICE_ID,
       rootPath: frontend.selected.rootPath,
-      // Vite detection is evidence, not a gate (any package.json-having root already qualifies as a frontend
-      // candidate - detection/frontendDetector.ts), so a confirmed frameworkId only when Vite was actually found.
-      frameworkId: frontend.selected.viteConfigPath === undefined ? undefined : frontendFrameworkDetection.frameworkId,
+      // NEXTJS-1B: frameworkId comes straight from whichever registered
+      // FrontendFrameworkDetection actually matched this candidate
+      // (frontendDetector.ts#matchFrontendFramework) - framework detection
+      // is evidence, not a candidacy gate (any package.json-having root
+      // already qualifies as a frontend candidate), so this is undefined
+      // whenever no registered framework's own evidence was found.
+      frameworkId: frontend.selected.frameworkId,
       runtime: {
         kind: "node",
         packageManager: frontend.selected.packageManager,
@@ -117,24 +121,32 @@ async function detectBackendFramework(
  * Django/FastAPI have no root `package.json` of their own. Left
  * unguarded, a flat Express backend's own `package.json` would
  * independently re-qualify as a second, spurious "frontend" service at the
- * exact same `rootPath` - not a Vite-detection false positive (Vite's own
- * marker is still absent, so `frameworkId` would be `undefined`), but a
- * duplicate `DetectedService` entry that would confuse Start/Stop/Toggle
- * ("Start Frontend" would re-run the same Express dev server a second time
- * from the same directory). This is a one-line suppression at the one
- * assembly point that already knows both results, not a change to either
- * detector: only ever fires when the "frontend" candidate is literally the
- * backend's own root with no independent Vite evidence - a real nested Vite
- * frontend (its own directory, or a `vite.config.*` confirming intent even
- * at the workspace root) is never suppressed.
+ * exact same `rootPath` - not a frontend-framework-detection false positive
+ * (no framework's own marker is present, so `frameworkId` would be
+ * `undefined`), but a duplicate `DetectedService` entry that would confuse
+ * Start/Stop/Toggle ("Start Frontend" would re-run the same Express dev
+ * server a second time from the same directory). This is a one-line
+ * suppression at the one assembly point that already knows both results,
+ * not a change to either detector: only ever fires when the "frontend"
+ * candidate is literally the backend's own root with no independent
+ * frontend-framework evidence - a real nested Vite/Next.js frontend (its
+ * own directory, or its own config file confirming intent even at the
+ * workspace root) is never suppressed.
+ *
+ * NEXTJS-1B: a Next.js "custom server" (both `express` and `next` in the
+ * same `package.json`) never reaches this function at all -
+ * `expressBackendDetection.ts` itself refuses to claim a root whose
+ * `package.json` depends on `next`, so `backendSelected` is simply
+ * `undefined` for that root and this suppression's precondition never
+ * applies - see that file's own doc comment for the full reasoning.
  */
 function isBackendsOwnPackageJson(
-  frontendSelected: { readonly rootPath: string; readonly viteConfigPath?: string },
+  frontendSelected: { readonly rootPath: string; readonly frameworkConfigPath?: string },
   backendSelected: BackendProject | undefined
 ): boolean {
   return (
     backendSelected !== undefined &&
-    frontendSelected.viteConfigPath === undefined &&
+    frontendSelected.frameworkConfigPath === undefined &&
     path.resolve(frontendSelected.rootPath) === path.resolve(backendSelected.rootPath)
   );
 }

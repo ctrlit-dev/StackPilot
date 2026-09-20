@@ -2,6 +2,7 @@ import * as path from "node:path";
 import { checkCandidatePath, type FileSystemProbe } from "../detection/fileSystem";
 import { resolveWorkspacePath } from "../utils/paths";
 import type { BackendFrameworkDetection, BackendFrameworkEntryPointCandidate } from "./backendFrameworkDetection";
+import { hasNextDependency } from "./nextFrontendDetection";
 
 /**
  * Deliberately narrow, documented support (mirrors FastAPI's own
@@ -104,6 +105,22 @@ export const expressBackendDetection: BackendFrameworkDetection = {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async detect(fs, workspaceRootPath, configuredEntryPointOverride) {
     const diagnostics: string[] = [];
+
+    // NEXTJS-1B: a root whose own package.json depends on `next` is a
+    // Next.js project - including a "custom server" shape that also
+    // depends on `express` (Next.js's own documented pattern of running
+    // its request handler behind a hand-written `express()` app, which
+    // would otherwise satisfy every fact this detector checks below). That
+    // is one real process, correctly represented as exactly one
+    // "frontend" service (`next`, see `adapters/nextFrontendDetection.ts`),
+    // never also a separate "backend" (`express`) service at the same
+    // root - Express must never claim this root, regardless of what its
+    // entry files contain. Uses the exact same fact
+    // `nextFrontendDetection.ts` itself requires, not a duplicated check.
+    if (await hasNextDependency(fs, workspaceRootPath)) {
+      return { candidates: [], diagnostics };
+    }
+
     const candidates: BackendFrameworkEntryPointCandidate[] = [];
     const hasDependencyEvidence = await hasExpressDependency(fs, workspaceRootPath);
 

@@ -163,6 +163,9 @@ export function frameworkDisplayLabel(service: DetectedService | undefined): str
   if (service?.frameworkId === "express") {
     return "Express";
   }
+  if (service?.frameworkId === "next") {
+    return "Next.js";
+  }
   return undefined;
 }
 

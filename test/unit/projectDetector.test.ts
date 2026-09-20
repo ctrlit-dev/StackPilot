@@ -6,6 +6,8 @@ import type { BackendFrameworkDetection } from "../../src/adapters/backendFramew
 import { djangoBackendDetection } from "../../src/adapters/djangoBackendDetection";
 import { expressBackendDetection } from "../../src/adapters/expressBackendDetection";
 import { fastApiBackendDetection } from "../../src/adapters/fastApiBackendDetection";
+import type { FrontendFrameworkDetection } from "../../src/adapters/frontendFrameworkDetection";
+import { nextFrontendDetection } from "../../src/adapters/nextFrontendDetection";
 import { viteFrontendDetection } from "../../src/adapters/viteFrontendDetection";
 import { DEFAULT_CONFIGURATION, type StackPilotConfiguration } from "../../src/config/configurationModel";
 import { getBackendService, getDjangoMetadata, getFastApiMetadata, getFrontendService, getNodeRuntime } from "../../src/detection/detectedProject";
@@ -13,14 +15,21 @@ import { detectProject as detectProjectWithFrameworkDetection } from "../../src/
 import type { FileSystemProbe } from "../../src/detection/fileSystem";
 import { InMemoryFileSystemProbe } from "./fakes/inMemoryFileSystem";
 
-/** Wires the real Django/Vite detection, unchanged - projectDetector.ts itself is generic composition, framework-neutral. */
+/**
+ * Wires the real Django/Vite+Next.js detection, unchanged - projectDetector.ts
+ * itself is generic composition, framework-neutral. NEXTJS-1B: the frontend
+ * parameter mirrors real production wiring (`extension.ts`) - both Vite AND
+ * Next.js registered together - not just Vite alone, so every existing
+ * fixture below also proves it stays correctly unrecognized-as-Next.js.
+ */
 function detectProject(
   fs: FileSystemProbe,
   workspaceRootPath: string,
   configuration: StackPilotConfiguration,
-  backendFrameworkDetections: readonly BackendFrameworkDetection[] = [djangoBackendDetection]
+  backendFrameworkDetections: readonly BackendFrameworkDetection[] = [djangoBackendDetection],
+  frontendFrameworkDetections: readonly FrontendFrameworkDetection[] = [viteFrontendDetection, nextFrontendDetection]
 ) {
-  return detectProjectWithFrameworkDetection(fs, workspaceRootPath, configuration, backendFrameworkDetections, viteFrontendDetection);
+  return detectProjectWithFrameworkDetection(fs, workspaceRootPath, configuration, backendFrameworkDetections, frontendFrameworkDetections);
 }
 
 const workspaceRoot = path.resolve("pc-test-fixtures", "project-detector");
@@ -243,4 +252,85 @@ void test("first-match-wins: a workspace with both manage.py and Express evidenc
   ]);
 
   assert.equal(getBackendService(result)?.frameworkId, "django");
+});
+
+// ---- NEXTJS-1B: Next.js frontend wiring --------------------------------
+
+void test("wires Next.js detection into the generalized frontend service using the SAME ServiceId 'frontend' as Vite", async () => {
+  const fs = new InMemoryFileSystemProbe().addFile(
+    path.join(workspaceRoot, "frontend", "package.json"),
+    JSON.stringify({ dependencies: { next: "16.3.5" }, scripts: { dev: "next dev", build: "next build", start: "next start" } })
+  );
+
+  const result = await detectProject(fs, workspaceRoot, DEFAULT_CONFIGURATION);
+
+  const frontendService = getFrontendService(result);
+  assert.equal(frontendService?.id, "frontend");
+  assert.equal(frontendService?.frameworkId, "next");
+  assert.equal(frontendService?.runtime?.kind, "node");
+});
+
+void test("a Django backend and a Next.js frontend coexist as two independent services, each with its own framework/runtime", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(workspaceRoot, "backend", "manage.py"))
+    .addFile(
+      path.join(workspaceRoot, "frontend", "package.json"),
+      JSON.stringify({ dependencies: { next: "16.3.5" }, scripts: { dev: "next dev" } })
+    );
+
+  const result = await detectProject(fs, workspaceRoot, DEFAULT_CONFIGURATION);
+
+  assert.equal(getBackendService(result)?.frameworkId, "django");
+  assert.equal(getFrontendService(result)?.frameworkId, "next");
+  assert.equal(result.services.length, 2);
+});
+
+// ---- NEXTJS-1B §9/§25: Express / Next.js custom-server collision -------
+
+void test("A. pure Express (no dependencies.next) is still detected as a backend, unaffected by the new exclusion guard", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(workspaceRoot, "app.js"), 'const express = require("express");\nconst app = express();\n')
+    .addFile(path.join(workspaceRoot, "package.json"), JSON.stringify({ dependencies: { express: "^4.19.2" }, scripts: { dev: "node app.js" } }));
+
+  const result = await detectProject(fs, workspaceRoot, DEFAULT_CONFIGURATION, [djangoBackendDetection, fastApiBackendDetection, expressBackendDetection]);
+
+  assert.equal(getBackendService(result)?.frameworkId, "express");
+  assert.equal(getFrontendService(result), undefined);
+});
+
+void test("B. a Next.js custom server (dependencies.express AND dependencies.next, plus a real Express entry file) is registered as exactly one 'frontend' service, never also a 'backend' service", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(
+      path.join(workspaceRoot, "server.js"),
+      'const express = require("express");\nconst next = require("next");\nconst app = express();\nconst nextApp = next({ dev: true });\napp.all("*", nextApp.getRequestHandler());\n'
+    )
+    .addFile(
+      path.join(workspaceRoot, "package.json"),
+      JSON.stringify({ dependencies: { express: "^4.19.2", next: "16.3.5" }, scripts: { dev: "node server.js" } })
+    );
+
+  const result = await detectProject(fs, workspaceRoot, DEFAULT_CONFIGURATION, [djangoBackendDetection, fastApiBackendDetection, expressBackendDetection]);
+
+  assert.equal(getBackendService(result), undefined);
+  const frontendService = getFrontendService(result);
+  assert.equal(frontendService?.id, "frontend");
+  assert.equal(frontendService?.frameworkId, "next");
+  assert.equal(result.services.length, 1);
+});
+
+void test("C. an Express backend at the root and an independent Next.js frontend nested under frontend/ are both detected as separate services", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(workspaceRoot, "app.js"), 'const express = require("express");\nconst app = express();\n')
+    .addFile(path.join(workspaceRoot, "package.json"), JSON.stringify({ dependencies: { express: "^4.19.2" }, scripts: { dev: "node app.js" } }))
+    .addFile(
+      path.join(workspaceRoot, "frontend", "package.json"),
+      JSON.stringify({ dependencies: { next: "16.3.5" }, scripts: { dev: "next dev" } })
+    );
+
+  const result = await detectProject(fs, workspaceRoot, DEFAULT_CONFIGURATION, [djangoBackendDetection, fastApiBackendDetection, expressBackendDetection]);
+
+  assert.equal(getBackendService(result)?.frameworkId, "express");
+  assert.equal(getFrontendService(result)?.rootPath, path.join(workspaceRoot, "frontend"));
+  assert.equal(getFrontendService(result)?.frameworkId, "next");
+  assert.equal(result.services.length, 2);
 });

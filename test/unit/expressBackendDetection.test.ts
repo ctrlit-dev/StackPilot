@@ -146,6 +146,42 @@ void test("rejects a Next.js-shaped package (next dependency, no express)", asyn
   assert.deepEqual(result.candidates, []);
 });
 
+// ---- NEXTJS-1B §9: Next.js custom-server exclusion ---------------------
+
+void test("rejects a Next.js custom server (dependencies.express AND dependencies.next, plus a real Express entry file) - the same root must never also be claimed as a separate Express backend", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(
+      path.join(workspaceRoot, "server.js"),
+      'const express = require("express");\nconst next = require("next");\nconst app = express();\nconst nextApp = next({ dev: true });\napp.all("*", nextApp.getRequestHandler());\n'
+    )
+    .addFile(path.join(workspaceRoot, "package.json"), JSON.stringify({ dependencies: { express: "^4.19.2", next: "16.3.5" } }));
+
+  const result = await expressBackendDetection.detect(fs, workspaceRoot, "backend/manage.py");
+
+  assert.deepEqual(result.candidates, []);
+});
+
+void test("rejects a Next.js custom server even when next is declared before express in dependencies", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(workspaceRoot, "index.js"), 'const express = require("express");\nconst app = express();\n')
+    .addFile(path.join(workspaceRoot, "package.json"), JSON.stringify({ dependencies: { next: "16.3.5", express: "^4.19.2" } }));
+
+  const result = await expressBackendDetection.detect(fs, workspaceRoot, "backend/manage.py");
+
+  assert.deepEqual(result.candidates, []);
+});
+
+void test("still detects a pure Express project (dependencies.express, no dependencies.next) unaffected by the new exclusion guard", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(workspaceRoot, "app.js"), 'const express = require("express");\nconst app = express();\n')
+    .addFile(path.join(workspaceRoot, "package.json"), packageJson());
+
+  const result = await expressBackendDetection.detect(fs, workspaceRoot, "backend/manage.py");
+
+  assert.equal(result.candidates.length, 1);
+  assert.equal(result.candidates[0]?.evidence, "app.js");
+});
+
 void test("rejects a NestJS-shaped entry file (NestFactory.create) even when express is a declared dependency (transitive via @nestjs/platform-express)", async () => {
   const fs = new InMemoryFileSystemProbe()
     .addFile(

@@ -3,6 +3,7 @@ import * as path from "node:path";
 import test from "node:test";
 
 import type { FrontendFrameworkDetection } from "../../src/adapters/frontendFrameworkDetection";
+import { nextFrontendDetection } from "../../src/adapters/nextFrontendDetection";
 import { viteFrontendDetection } from "../../src/adapters/viteFrontendDetection";
 import { DEFAULT_CONFIGURATION, type StackPilotConfiguration } from "../../src/config/configurationModel";
 import { detectFrontendProject as detectFrontendProjectWithFrameworkDetection } from "../../src/detection/frontendDetector";
@@ -19,9 +20,17 @@ function packageJson(scripts: Record<string, string>): string {
   return JSON.stringify({ name: "fixture", scripts });
 }
 
-/** Every existing test below exercises real Vite detection, unchanged - see the delegation test at the bottom for proof that this is injected, not hard-coded. */
+/**
+ * Every existing test below exercises real Vite detection, unchanged - see
+ * the delegation test at the bottom for proof that this is injected, not
+ * hard-coded. NEXTJS-1B: the real production wiring registers Vite AND
+ * Next.js together (`extension.ts`); this helper mirrors that exact array,
+ * not just Vite alone, so every existing fixture also proves it stays
+ * correctly unrecognized-as-Next.js (no regression from adding a second
+ * registered detection).
+ */
 function detectFrontendProject(fs: FileSystemProbe, workspaceRootPath: string, config: StackPilotConfiguration) {
-  return detectFrontendProjectWithFrameworkDetection(fs, workspaceRootPath, config, viteFrontendDetection);
+  return detectFrontendProjectWithFrameworkDetection(fs, workspaceRootPath, config, [viteFrontendDetection, nextFrontendDetection]);
 }
 
 void test("detects a Vite frontend in ./frontend", async () => {
@@ -32,7 +41,7 @@ void test("detects a Vite frontend in ./frontend", async () => {
   const result = await detectFrontendProject(fs, workspaceRoot, configuration());
 
   assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "frontend"));
-  assert.equal(result.selected?.viteConfigPath, path.join(workspaceRoot, "frontend", "vite.config.ts"));
+  assert.equal(result.selected?.frameworkConfigPath, path.join(workspaceRoot, "frontend", "vite.config.ts"));
   assert.deepEqual(result.selected?.scripts, { dev: "vite", build: "vite build" });
 });
 
@@ -88,7 +97,7 @@ void test("still detects a frontend that has no Vite config file", async () => {
   const result = await detectFrontendProject(fs, workspaceRoot, configuration());
 
   assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "frontend"));
-  assert.equal(result.selected?.viteConfigPath, undefined);
+  assert.equal(result.selected?.frameworkConfigPath, undefined);
 });
 
 void test("ignores a configured frontend directory override that escapes the workspace", async () => {
@@ -137,9 +146,54 @@ void test("detectFrontendProject has no knowledge of 'vite.config' itself - a pa
   };
   const fs = new InMemoryFileSystemProbe().addFile(path.join(workspaceRoot, "frontend", "package.json"), packageJson({ dev: "fake" }));
 
-  const result = await detectFrontendProjectWithFrameworkDetection(fs, workspaceRoot, configuration(), fakeDetection);
+  const result = await detectFrontendProjectWithFrameworkDetection(fs, workspaceRoot, configuration(), [fakeDetection]);
 
   assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "frontend"));
-  assert.equal(result.selected?.viteConfigPath, path.join(workspaceRoot, "frontend", "fake.config.js"));
+  assert.equal(result.selected?.frameworkConfigPath, path.join(workspaceRoot, "frontend", "fake.config.js"));
   assert.deepEqual(result.selected?.evidence, ["package.json", "fake.config.js"]);
+});
+
+// ---- NEXTJS-1B: frontend framework pluralization -----------------------
+
+void test("detects a Next.js frontend via dependencies.next, with no config file", async () => {
+  const fs = new InMemoryFileSystemProbe().addFile(
+    path.join(workspaceRoot, "frontend", "package.json"),
+    JSON.stringify({ name: "fixture", scripts: { dev: "next dev" }, dependencies: { next: "16.3.5" } })
+  );
+
+  const result = await detectFrontendProject(fs, workspaceRoot, configuration());
+
+  assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "frontend"));
+  assert.equal(result.selected?.frameworkId, "next");
+});
+
+void test("first matching registered frontend detector wins: Vite evidence still resolves to 'vite', not 'next', when both are registered", async () => {
+  const fs = new InMemoryFileSystemProbe()
+    .addFile(path.join(workspaceRoot, "frontend", "package.json"), packageJson({ dev: "vite" }))
+    .addFile(path.join(workspaceRoot, "frontend", "vite.config.ts"));
+
+  const result = await detectFrontendProject(fs, workspaceRoot, configuration());
+
+  assert.equal(result.selected?.frameworkId, "vite");
+});
+
+void test("a generic, unrecognized Node frontend (neither Vite nor Next.js evidence) still degrades safely to frameworkId undefined", async () => {
+  const fs = new InMemoryFileSystemProbe().addFile(path.join(workspaceRoot, "frontend", "package.json"), packageJson({ dev: "node server.js" }));
+
+  const result = await detectFrontendProject(fs, workspaceRoot, configuration());
+
+  assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "frontend"));
+  assert.equal(result.selected?.frameworkId, undefined);
+});
+
+void test("a configured frontend directory override works identically for a Next.js candidate", async () => {
+  const fs = new InMemoryFileSystemProbe().addFile(
+    path.join(workspaceRoot, "web", "package.json"),
+    JSON.stringify({ name: "fixture", scripts: { dev: "next dev" }, dependencies: { next: "16.3.5" } })
+  );
+
+  const result = await detectFrontendProject(fs, workspaceRoot, configuration({ frontendDirectory: "web" }));
+
+  assert.equal(result.selected?.rootPath, path.join(workspaceRoot, "web"));
+  assert.equal(result.selected?.frameworkId, "next");
 });

@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import type { FrameworkAdapterId } from "../adapters/frameworkAdapterId";
 import type { FrontendFrameworkDetection } from "../adapters/frontendFrameworkDetection";
 import type { StackPilotConfiguration } from "../config/configurationModel";
 import { resolveWorkspacePath, selectHighestConfidenceCandidate, uniqueStrings } from "../utils/paths";
@@ -10,7 +11,8 @@ import { readPackageJson } from "./packageJson";
 export interface FrontendProject {
   readonly rootPath: string;
   readonly packageJsonPath: string;
-  readonly viteConfigPath?: string;
+  readonly frameworkId?: FrameworkAdapterId;
+  readonly frameworkConfigPath?: string;
   readonly scripts: Readonly<Record<string, string>>;
   readonly packageManager: PackageManagerDetection;
   readonly score: number;
@@ -29,17 +31,26 @@ const FRONTEND_CANDIDATE_DIRECTORIES = ["frontend", "client", "web", "."] as con
  * Orchestrates frontend detection generically: any workspace-relative
  * directory (configured, or one of the known candidate names) with a
  * `package.json` already qualifies as a frontend project candidate - this
- * function has no knowledge of Vite or any other framework's own config
- * file. The injected `FrontendFrameworkDetection` is only ever asked to add
- * evidence to an already-qualified candidate (see
- * `adapters/viteFrontendDetection.ts`); its absence never disqualifies one -
- * see docs/ARCHITECTURE.md.
+ * function has no knowledge of Vite, Next.js, or any other framework's own
+ * config file. The injected `FrontendFrameworkDetection`s are only ever
+ * asked to add evidence to an already-qualified candidate (see
+ * `adapters/viteFrontendDetection.ts`/`adapters/nextFrontendDetection.ts`);
+ * none of their absence ever disqualifies one - see docs/ARCHITECTURE.md.
+ *
+ * NEXTJS-1B: plural, not a single injected detection - StackPilot's first
+ * second frontend framework. Every registered detection is tried, in
+ * order, against the SAME already-qualified candidate root (see
+ * `matchFrontendFramework` below) - a different generalization shape than
+ * the backend's own array, where each framework detection produces its own
+ * independent candidate list. Registration order is inconsequential for
+ * correctness given each framework's own evidence sets are disjoint in
+ * practice, and is not relied on to resolve any real ambiguity.
  */
 export async function detectFrontendProject(
   fs: FileSystemProbe,
   workspaceRootPath: string,
   configuration: StackPilotConfiguration,
-  frontendFrameworkDetection: FrontendFrameworkDetection
+  frontendFrameworkDetections: readonly FrontendFrameworkDetection[]
 ): Promise<FrontendDetectionResult> {
   const diagnostics: string[] = [];
   const candidateDirectories = uniqueStrings([configuration.frontendDirectory, ...FRONTEND_CANDIDATE_DIRECTORIES]);
@@ -63,18 +74,19 @@ export async function detectFrontendProject(
       continue;
     }
 
-    const viteConfigPath = await frontendFrameworkDetection.findFrameworkConfigPath(fs, rootPath);
+    const framework = await matchFrontendFramework(fs, rootPath, frontendFrameworkDetections);
     const evidence = ["package.json"];
-    if (viteConfigPath !== undefined) {
-      evidence.push(path.basename(viteConfigPath));
+    if (framework !== undefined) {
+      evidence.push(path.basename(framework.configPath));
     }
 
     const hasPreferredDevScript = Object.hasOwn(packageJson.scripts, configuration.frontendDevScript);
-    const score = calculateFrontendScore(candidateDirectory, viteConfigPath, hasPreferredDevScript);
+    const score = calculateFrontendScore(candidateDirectory, framework?.configPath, hasPreferredDevScript);
     candidates.push({
       rootPath,
       packageJsonPath,
-      viteConfigPath,
+      frameworkId: framework?.frameworkId,
+      frameworkConfigPath: framework?.configPath,
       scripts: packageJson.scripts,
       packageManager: await detectPackageManager(fs, rootPath, configuration.frontendPackageManager),
       score,
@@ -89,9 +101,31 @@ export async function detectFrontendProject(
   };
 }
 
-function calculateFrontendScore(candidateDirectory: string, viteConfigPath: string | undefined, hasPreferredDevScript: boolean): number {
+/**
+ * Tries each registered frontend framework detection, in order, against
+ * this already-qualified candidate root - the first one whose own
+ * `findFrameworkConfigPath()` returns evidence wins. Every candidate is
+ * offered to every detection (candidacy was already decided above), so
+ * this only ever needs to pick which framework's evidence, if any, applies.
+ */
+async function matchFrontendFramework(
+  fs: FileSystemProbe,
+  rootPath: string,
+  frontendFrameworkDetections: readonly FrontendFrameworkDetection[]
+): Promise<{ readonly frameworkId: FrameworkAdapterId; readonly configPath: string } | undefined> {
+  for (const detection of frontendFrameworkDetections) {
+    const configPath = await detection.findFrameworkConfigPath(fs, rootPath);
+    if (configPath !== undefined) {
+      return { frameworkId: detection.frameworkId, configPath };
+    }
+  }
+
+  return undefined;
+}
+
+function calculateFrontendScore(candidateDirectory: string, frameworkConfigPath: string | undefined, hasPreferredDevScript: boolean): number {
   let score = candidateDirectory === "." ? 20 : 40;
-  if (viteConfigPath !== undefined) {
+  if (frameworkConfigPath !== undefined) {
     score += 50;
   }
   if (hasPreferredDevScript) {

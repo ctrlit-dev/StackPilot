@@ -167,7 +167,7 @@ void test("Express + Vite Create requests a nested frontend via the generic .fro
   fakeFs.addFile(path.join(frontendRoot, "vite.config.ts"));
   fakeFs.addFile(path.join(frontendRoot, "package-lock.json"));
 
-  const detectedProject = await detectProject(fakeFs, workspaceRootPath, DEFAULT_CONFIGURATION, [expressBackendDetection], viteFrontendDetection);
+  const detectedProject = await detectProject(fakeFs, workspaceRootPath, DEFAULT_CONFIGURATION, [expressBackendDetection], [viteFrontendDetection]);
 
   const backend = getBackendService(detectedProject);
   const frontend = getFrontendService(detectedProject);
