@@ -20,6 +20,8 @@ export interface RecordedCall {
 
 const executeCommandCalls: RecordedCall[] = [];
 const openExternalCalls: RecordedCall[] = [];
+const showOpenDialogCalls: RecordedCall[] = [];
+let showOpenDialogResult: readonly { fsPath: string }[] | undefined;
 
 const fakeVscode = {
   commands: {
@@ -41,7 +43,11 @@ const fakeVscode = {
   window: {
     showErrorMessage: (): Promise<undefined> => Promise.resolve(undefined),
     showWarningMessage: (): Promise<undefined> => Promise.resolve(undefined),
-    showInformationMessage: (): Promise<undefined> => Promise.resolve(undefined)
+    showInformationMessage: (): Promise<undefined> => Promise.resolve(undefined),
+    showOpenDialog: (...args: unknown[]): Promise<readonly { fsPath: string }[] | undefined> => {
+      showOpenDialogCalls.push({ args });
+      return Promise.resolve(showOpenDialogResult);
+    }
   }
 };
 
@@ -62,6 +68,8 @@ moduleWithLegacyLoad._load = function patchedLoad(request, parent, isMain) {
 export function resetVscodeStubCalls(): void {
   executeCommandCalls.length = 0;
   openExternalCalls.length = 0;
+  showOpenDialogCalls.length = 0;
+  showOpenDialogResult = undefined;
 }
 
 export function getExecuteCommandCalls(): readonly RecordedCall[] {
@@ -70,6 +78,15 @@ export function getExecuteCommandCalls(): readonly RecordedCall[] {
 
 export function getOpenExternalCalls(): readonly RecordedCall[] {
   return openExternalCalls;
+}
+
+export function getShowOpenDialogCalls(): readonly RecordedCall[] {
+  return showOpenDialogCalls;
+}
+
+/** Controls what the next `vscode.window.showOpenDialog(...)` call resolves to (default: undefined, i.e. the user cancelled). */
+export function setShowOpenDialogResult(result: readonly { fsPath: string }[] | undefined): void {
+  showOpenDialogResult = result;
 }
 
 /** Minimal fake satisfying the one `vscode.OutputChannel` member the code under test actually calls. */

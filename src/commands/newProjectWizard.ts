@@ -26,6 +26,10 @@ export function registerNewProjectCommand(context: CommandContext): vscode.Dispo
  * (below) approves.
  */
 export async function runNewProjectWizard(context: CommandContext): Promise<void> {
+  if (!(await context.workspaceTrust.ensureTrustedForExecution("New Project"))) {
+    return;
+  }
+
   const parentDirectory = await pickParentDirectory();
   if (parentDirectory === undefined) {
     return;
