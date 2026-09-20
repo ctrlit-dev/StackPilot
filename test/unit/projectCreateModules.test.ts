@@ -38,10 +38,14 @@ void test("registers Express", () => {
   assert.ok(PROJECT_CREATE_MODULES.some((module) => module.id === "express"));
 });
 
-void test("registers exactly Django, FastAPI, React + Vite, and Express - no more, no fewer", () => {
+void test("registers Next.js", () => {
+  assert.ok(PROJECT_CREATE_MODULES.some((module) => module.id === "nextjs"));
+});
+
+void test("registers exactly Django, FastAPI, React + Vite, Express, and Next.js - no more, no fewer", () => {
   assert.deepEqual(
     PROJECT_CREATE_MODULES.map((module) => module.id),
-    ["django", "fastapi", "vite-react", "express"]
+    ["django", "fastapi", "vite-react", "express", "nextjs"]
   );
 });
 
