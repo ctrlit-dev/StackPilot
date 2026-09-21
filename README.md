@@ -51,7 +51,7 @@ tests in VS Code's native Testing panel.
 | FastAPI | Yes | Yes | Yes | None yet |
 | React + Vite | Yes | Yes | Yes | Install, build, test (when scripted), run any script |
 
-Frontend tooling works with npm, pnpm, yarn, or bun, detected from your
+Frontend tooling works with npm, pnpm, Yarn, or Bun, detected from your
 lockfile.
 
 ## Quick start
