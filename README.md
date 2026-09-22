@@ -66,7 +66,7 @@ today — FastAPI and Express currently cover detection, dev-server
 lifecycle, and diagnostics only. Next.js runs as its own frontend service,
 with the same generic frontend operations as Vite.
 
-Frontend tooling works with npm, pnpm, yarn, or bun, detected from your
+Frontend tooling supports npm, pnpm, Yarn, and Bun, detected from your
 lockfile.
 
 ## Quick start
